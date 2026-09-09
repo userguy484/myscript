@@ -26,7 +26,7 @@ local SelectedPlayer = nil
 
 local NoclipConnection
 local FlyConnection
-local SitConnection
+local SitThread
 
 local OriginalCollision = {}
 local ESPObjects = {}
@@ -86,7 +86,7 @@ Close.Parent = Main
 Instance.new("UICorner",Close).CornerRadius = UDim.new(0,9)
 
 --------------------------------------------------
--- BUTTON
+-- BUTTON CREATOR
 --------------------------------------------------
 
 local function CreateButton(text,y)
@@ -114,6 +114,10 @@ local function CreateButton(text,y)
 
 	return Button
 end
+
+--------------------------------------------------
+-- BUTTONS
+--------------------------------------------------
 
 local NoclipButton = CreateButton("Noclip: OFF",55)
 local FlyButton = CreateButton("Fly: OFF",100)
@@ -164,7 +168,7 @@ SelectedLabel.Parent = Main
 local SitButton = CreateButton("Sit to Player: OFF",575)
 
 --------------------------------------------------
--- REFRESH PLAYERS
+-- REFRESH PLAYER LIST
 --------------------------------------------------
 
 local function RefreshPlayers()
@@ -207,10 +211,9 @@ local function RefreshPlayers()
 		end
 	end
 
-	task.wait()
-
 	PlayerList.CanvasSize = UDim2.new(
-		0,0,
+		0,
+		0,
 		0,
 		Layout.AbsoluteContentSize.Y + 10
 	)
@@ -225,6 +228,11 @@ Players.PlayerRemoving:Connect(function(player)
 	if SelectedPlayer == player then
 		SelectedPlayer = nil
 		SelectedLabel.Text = "Selected: None"
+
+		if SitEnabled then
+			SitEnabled = false
+			SitButton.Text = "Sit to Player: OFF"
+		end
 	end
 
 	RefreshPlayers()
@@ -253,6 +261,7 @@ local function SetNoclip(enabled)
 
 		OriginalCollision = {}
 		NoclipButton.Text = "Noclip: OFF"
+
 		return
 	end
 
@@ -285,34 +294,34 @@ end)
 --------------------------------------------------
 
 local Keys = {
-	W=false,
-	A=false,
-	S=false,
-	D=false,
-	Space=false,
-	Ctrl=false
+	W = false,
+	A = false,
+	S = false,
+	D = false,
+	Space = false,
+	Ctrl = false
 }
 
 UserInputService.InputBegan:Connect(function(input,processed)
 
 	if processed then return end
 
-	if input.KeyCode == Enum.KeyCode.W then Keys.W=true end
-	if input.KeyCode == Enum.KeyCode.A then Keys.A=true end
-	if input.KeyCode == Enum.KeyCode.S then Keys.S=true end
-	if input.KeyCode == Enum.KeyCode.D then Keys.D=true end
-	if input.KeyCode == Enum.KeyCode.Space then Keys.Space=true end
-	if input.KeyCode == Enum.KeyCode.LeftControl then Keys.Ctrl=true end
+	if input.KeyCode == Enum.KeyCode.W then Keys.W = true end
+	if input.KeyCode == Enum.KeyCode.A then Keys.A = true end
+	if input.KeyCode == Enum.KeyCode.S then Keys.S = true end
+	if input.KeyCode == Enum.KeyCode.D then Keys.D = true end
+	if input.KeyCode == Enum.KeyCode.Space then Keys.Space = true end
+	if input.KeyCode == Enum.KeyCode.LeftControl then Keys.Ctrl = true end
 end)
 
 UserInputService.InputEnded:Connect(function(input)
 
-	if input.KeyCode == Enum.KeyCode.W then Keys.W=false end
-	if input.KeyCode == Enum.KeyCode.A then Keys.A=false end
-	if input.KeyCode == Enum.KeyCode.S then Keys.S=false end
-	if input.KeyCode == Enum.KeyCode.D then Keys.D=false end
-	if input.KeyCode == Enum.KeyCode.Space then Keys.Space=false end
-	if input.KeyCode == Enum.KeyCode.LeftControl then Keys.Ctrl=false end
+	if input.KeyCode == Enum.KeyCode.W then Keys.W = false end
+	if input.KeyCode == Enum.KeyCode.A then Keys.A = false end
+	if input.KeyCode == Enum.KeyCode.S then Keys.S = false end
+	if input.KeyCode == Enum.KeyCode.D then Keys.D = false end
+	if input.KeyCode == Enum.KeyCode.Space then Keys.Space = false end
+	if input.KeyCode == Enum.KeyCode.LeftControl then Keys.Ctrl = false end
 end)
 
 local function SetFly(enabled)
@@ -370,7 +379,6 @@ end)
 local function RemoveESP()
 
 	for _,objects in pairs(ESPObjects) do
-
 		for _,object in ipairs(objects) do
 			if object and object.Parent then
 				object:Destroy()
@@ -389,13 +397,13 @@ local function AddESP(player)
 	local character = player.Character
 	if not character then return end
 
-	local highlight = Instance.new("Highlight")
-	highlight.Name = "AdminESP"
-	highlight.FillTransparency = 0.7
-	highlight.OutlineTransparency = 0
-	highlight.Parent = character
+	local Highlight = Instance.new("Highlight")
+	Highlight.Name = "AdminESP"
+	Highlight.FillTransparency = 0.7
+	Highlight.OutlineTransparency = 0
+	Highlight.Parent = character
 
-	ESPObjects[player] = {highlight}
+	ESPObjects[player] = {Highlight}
 end
 
 local function SetESP(enabled)
@@ -438,12 +446,11 @@ end)
 ViewButton.MouseButton1Click:Connect(function()
 
 	if not SelectedPlayer then
+
 		ViewButton.Text = "Select A Player!"
 
 		task.delay(1,function()
-			if ViewButton then
-				ViewButton.Text = "View Selected"
-			end
+			ViewButton.Text = "View Selected"
 		end)
 
 		return
@@ -469,17 +476,33 @@ end)
 
 --------------------------------------------------
 -- SIT TO PLAYER
--- CONTINUOUSLY TELEPORTS YOU BESIDE THEM
+-- TELEPORT EVERY SECOND
 --------------------------------------------------
+
+local function TeleportToSelected()
+
+	if not SitEnabled then return end
+	if not SelectedPlayer then return end
+	if not Root or not Root.Parent then return end
+	if not Humanoid or not Humanoid.Parent then return end
+
+	local targetCharacter = SelectedPlayer.Character
+	if not targetCharacter then return end
+
+	local targetRoot = targetCharacter:FindFirstChild("HumanoidRootPart")
+	if not targetRoot then return end
+
+	Root.CFrame = targetRoot.CFrame * CFrame.new(0,0,-2.5)
+
+	Root.AssemblyLinearVelocity = Vector3.zero
+	Root.AssemblyAngularVelocity = Vector3.zero
+
+	Humanoid.Sit = true
+end
 
 local function StopSit()
 
 	SitEnabled = false
-
-	if SitConnection then
-		SitConnection:Disconnect()
-		SitConnection = nil
-	end
 
 	SitButton.Text = "Sit to Player: OFF"
 end
@@ -488,10 +511,10 @@ local function StartSit()
 
 	if not SelectedPlayer then
 
-		SitButton.Text = "SELECT PLAYER!"
+		SitButton.Text = "Select A Player!"
 
 		task.delay(1,function()
-			if SitButton then
+			if not SitEnabled then
 				SitButton.Text = "Sit to Player: OFF"
 			end
 		end)
@@ -499,53 +522,23 @@ local function StartSit()
 		return
 	end
 
-	if not Root or not Humanoid then
-		return
-	end
-
 	SitEnabled = true
 	SitButton.Text = "Sit to Player: ON"
 
-	if SitConnection then
-		SitConnection:Disconnect()
-	end
+	-- Immediate teleport
+	TeleportToSelected()
 
-	SitConnection = RunService.Heartbeat:Connect(function()
+	-- Teleport again every second
+	SitThread = task.spawn(function()
 
-		if not SitEnabled then
-			return
+		while SitEnabled do
+
+			task.wait(1)
+
+			if SitEnabled then
+				TeleportToSelected()
+			end
 		end
-
-		if not SelectedPlayer then
-			StopSit()
-			return
-		end
-
-		local targetCharacter = SelectedPlayer.Character
-
-		if not targetCharacter then
-			return
-		end
-
-		local targetRoot = targetCharacter:FindFirstChild("HumanoidRootPart")
-
-		if not targetRoot then
-			return
-		end
-
-		if not Root or not Root.Parent then
-			return
-		end
-
-		-- Continuously keep your character beside the selected player
-		Root.CFrame =
-			targetRoot.CFrame * CFrame.new(0,0,-2.5)
-
-		-- Keep your character sitting
-		Humanoid.Sit = true
-
-		-- Prevent falling away
-		Root.AssemblyLinearVelocity = Vector3.zero
 	end)
 end
 
@@ -563,13 +556,11 @@ end)
 --------------------------------------------------
 
 Close.MouseButton1Click:Connect(function()
-
 	Main.Visible = false
 	OpenButton.Visible = true
 end)
 
 OpenButton.MouseButton1Click:Connect(function()
-
 	OpenButton.Visible = false
 	Main.Visible = true
 end)
@@ -604,13 +595,13 @@ UserInputService.InputChanged:Connect(function(input)
 	if not Dragging then return end
 	if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
 
-	local delta = input.Position - DragStart
+	local Delta = input.Position - DragStart
 
 	Main.Position = UDim2.new(
 		StartPosition.X.Scale,
-		StartPosition.X.Offset + delta.X,
+		StartPosition.X.Offset + Delta.X,
 		StartPosition.Y.Scale,
-		StartPosition.Y.Offset + delta.Y
+		StartPosition.Y.Offset + Delta.Y
 	)
 end)
 
@@ -620,7 +611,8 @@ end)
 
 LocalPlayer.CharacterAdded:Connect(function()
 
-	StopSit()
+	SitEnabled = false
+	SitButton.Text = "Sit to Player: OFF"
 
 	task.wait(0.5)
 
