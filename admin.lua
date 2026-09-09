@@ -1,5 +1,5 @@
 -- admin.lua
--- For testing in your own Roblox Studio game
+-- For your own Roblox Studio game
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -11,16 +11,16 @@ local camera = workspace.CurrentCamera
 local flying = false
 local noclip = false
 local flySpeed = 60
-local viewingPlayer = nil
+local selectedPlayer = nil
 
 local character = player.Character or player.CharacterAdded:Wait()
-local root = character:WaitForChild("HumanoidRootPart")
 local humanoid = character:WaitForChild("Humanoid")
+local root = character:WaitForChild("HumanoidRootPart")
 
 player.CharacterAdded:Connect(function(char)
 	character = char
-	root = char:WaitForChild("HumanoidRootPart")
 	humanoid = char:WaitForChild("Humanoid")
+	root = char:WaitForChild("HumanoidRootPart")
 end)
 
 -- GUI
@@ -30,7 +30,7 @@ gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.fromOffset(300, 430)
+frame.Size = UDim2.fromOffset(310, 500)
 frame.Position = UDim2.fromOffset(30, 100)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.BorderSizePixel = 0
@@ -78,7 +78,7 @@ UIS.InputChanged:Connect(function(input)
 	end
 end)
 
--- Buttons
+-- Button creator
 local function makeButton(text, y)
 	local button = Instance.new("TextButton")
 	button.Size = UDim2.new(1, -20, 0, 38)
@@ -94,12 +94,13 @@ end
 
 local flyButton = makeButton("Fly: OFF", 55)
 local noclipButton = makeButton("Noclip: OFF", 100)
-local stopViewButton = makeButton("Stop Viewing", 145)
+local flingButton = makeButton("Fling Selected Player", 145)
+local stopViewButton = makeButton("Stop Viewing", 190)
 
--- Player list
+-- Player list title
 local playerTitle = Instance.new("TextLabel")
 playerTitle.Size = UDim2.new(1, -20, 0, 25)
-playerTitle.Position = UDim2.fromOffset(10, 190)
+playerTitle.Position = UDim2.fromOffset(10, 235)
 playerTitle.BackgroundTransparency = 1
 playerTitle.Text = "PLAYER LIST"
 playerTitle.TextColor3 = Color3.new(1, 1, 1)
@@ -107,12 +108,14 @@ playerTitle.TextSize = 17
 playerTitle.TextXAlignment = Enum.TextXAlignment.Left
 playerTitle.Parent = frame
 
+-- Player list
 local list = Instance.new("ScrollingFrame")
-list.Size = UDim2.new(1, -20, 0, 220)
-list.Position = UDim2.fromOffset(10, 215)
+list.Size = UDim2.new(1, -20, 0, 250)
+list.Position = UDim2.fromOffset(10, 265)
 list.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 list.BorderSizePixel = 0
 list.ScrollBarThickness = 6
+list.CanvasSize = UDim2.new(0, 0, 0, 0)
 list.Parent = frame
 
 local layout = Instance.new("UIListLayout")
@@ -121,27 +124,72 @@ layout.Parent = list
 
 -- View player
 local function viewPlayer(target)
-	if not target then return end
+	if not target or not target.Character then
+		return
+	end
 
-	local targetCharacter = target.Character
-	if not targetCharacter then return end
-
-	local targetHumanoid = targetCharacter:FindFirstChildOfClass("Humanoid")
+	local targetHumanoid =
+		target.Character:FindFirstChildOfClass("Humanoid")
 
 	if targetHumanoid then
 		camera.CameraSubject = targetHumanoid
-		viewingPlayer = target
 	end
 end
 
 stopViewButton.MouseButton1Click:Connect(function()
-	local myHumanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		camera.CameraSubject = humanoid
+	end
+end)
 
-	if myHumanoid then
-		camera.CameraSubject = myHumanoid
+-- Fling effect
+local function flingEffect(target)
+	if not target or not target.Character then
+		return
 	end
 
-	viewingPlayer = nil
+	if not character or not character.Parent then
+		return
+	end
+
+	local targetRoot =
+		target.Character:FindFirstChild("HumanoidRootPart")
+
+	if not targetRoot or not root then
+		return
+	end
+
+	-- Save original position
+	local originalCFrame = character:GetPivot()
+
+	-- Teleport to the target
+	local targetCFrame =
+		targetRoot.CFrame * CFrame.new(0, 0, 3)
+
+	character:PivotTo(targetCFrame)
+
+	task.wait(0.05)
+
+	-- Turn 90 degrees
+	character:PivotTo(
+		targetCFrame * CFrame.Angles(0, math.rad(90), 0)
+	)
+
+	task.wait(0.08)
+
+	-- Turn back
+	character:PivotTo(targetCFrame)
+
+	task.wait(0.08)
+
+	-- Return to original position
+	character:PivotTo(originalCFrame)
+end
+
+flingButton.MouseButton1Click:Connect(function()
+	if selectedPlayer then
+		flingEffect(selectedPlayer)
+	end
 end)
 
 -- Refresh player list
@@ -163,23 +211,40 @@ local function refreshPlayers()
 		button.Parent = list
 
 		button.MouseButton1Click:Connect(function()
+			selectedPlayer = target
 			viewPlayer(target)
+
+			flingButton.Text =
+				"Fling: " .. target.Name
 		end)
 	end
 
 	task.wait()
-	list.CanvasSize = UDim2.fromOffset(0, layout.AbsoluteContentSize.Y + 5)
+	list.CanvasSize = UDim2.fromOffset(
+		0,
+		layout.AbsoluteContentSize.Y + 5
+	)
 end
 
 Players.PlayerAdded:Connect(refreshPlayers)
-Players.PlayerRemoving:Connect(refreshPlayers)
+
+Players.PlayerRemoving:Connect(function(leaving)
+	if selectedPlayer == leaving then
+		selectedPlayer = nil
+		flingButton.Text = "Fling Selected Player"
+	end
+
+	refreshPlayers()
+end)
 
 refreshPlayers()
 
 -- Fly
 flyButton.MouseButton1Click:Connect(function()
 	flying = not flying
-	flyButton.Text = "Fly: " .. (flying and "ON" or "OFF")
+
+	flyButton.Text =
+		"Fly: " .. (flying and "ON" or "OFF")
 
 	if not flying and root then
 		root.AssemblyLinearVelocity = Vector3.zero
@@ -218,7 +283,8 @@ RunService.RenderStepped:Connect(function()
 	end
 
 	if direction.Magnitude > 0 then
-		root.AssemblyLinearVelocity = direction.Unit * flySpeed
+		root.AssemblyLinearVelocity =
+			direction.Unit * flySpeed
 	else
 		root.AssemblyLinearVelocity = Vector3.zero
 	end
@@ -227,11 +293,15 @@ end)
 -- Noclip
 noclipButton.MouseButton1Click:Connect(function()
 	noclip = not noclip
-	noclipButton.Text = "Noclip: " .. (noclip and "ON" or "OFF")
+
+	noclipButton.Text =
+		"Noclip: " .. (noclip and "ON" or "OFF")
 end)
 
 RunService.Stepped:Connect(function()
-	if not character then return end
+	if not character then
+		return
+	end
 
 	for _, part in ipairs(character:GetDescendants()) do
 		if part:IsA("BasePart") then
