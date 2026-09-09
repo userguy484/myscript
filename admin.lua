@@ -1,383 +1,451 @@
--- ADMIN GUI
--- For your own Roblox Studio game
+--// ANIMATED ADMIN GUI
+--// No character animation / no fling
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
+local UIS = game:GetService("UserInputService")
 
-local player = Players.LocalPlayer
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 -- Remove old GUI
-local old = player.PlayerGui:FindFirstChild("AnimatedAdmin")
+local old = PlayerGui:FindFirstChild("AnimatedAdmin")
 if old then
 	old:Destroy()
 end
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "AnimatedAdmin"
-gui.ResetOnSpawn = false
-gui.Parent = player.PlayerGui
+--// GUI
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "AnimatedAdmin"
+Gui.ResetOnSpawn = false
+Gui.Parent = PlayerGui
 
--- Main window
-local main = Instance.new("Frame")
-main.Size = UDim2.fromOffset(320, 420)
-main.Position = UDim2.new(0, 25, 0.5, -210)
-main.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-main.BorderSizePixel = 0
-main.Parent = gui
+local Main = Instance.new("Frame")
+Main.Size = UDim2.fromOffset(340, 500)
+Main.Position = UDim2.new(0, 20, 0.5, -250)
+Main.BackgroundColor3 = Color3.fromRGB(25,25,30)
+Main.BorderSizePixel = 0
+Main.Parent = Gui
 
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 12)
-corner.Parent = main
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0,12)
+Corner.Parent = Main
 
--- Title
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, -50, 0, 45)
-title.Position = UDim2.fromOffset(15, 5)
-title.BackgroundTransparency = 1
-title.Text = "⚡ ADMIN PANEL"
-title.TextColor3 = Color3.new(1, 1, 1)
-title.TextSize = 22
-title.Font = Enum.Font.GothamBold
-title.TextXAlignment = Enum.TextXAlignment.Left
-title.Parent = main
+--// Title
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1,-55,0,45)
+Title.Position = UDim2.fromOffset(15,5)
+Title.BackgroundTransparency = 1
+Title.Text = "⚡ ADMIN PANEL"
+Title.TextColor3 = Color3.new(1,1,1)
+Title.TextSize = 22
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Main
 
--- Close
-local close = Instance.new("TextButton")
-close.Size = UDim2.fromOffset(38, 38)
-close.Position = UDim2.new(1, -45, 0, 8)
-close.Text = "×"
-close.TextSize = 28
-close.TextColor3 = Color3.new(1, 1, 1)
-close.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
-close.BorderSizePixel = 0
-close.Parent = main
+--// Close
+local Close = Instance.new("TextButton")
+Close.Size = UDim2.fromOffset(38,38)
+Close.Position = UDim2.new(1,-45,0,8)
+Close.Text = "×"
+Close.TextSize = 28
+Close.TextColor3 = Color3.new(1,1,1)
+Close.BackgroundColor3 = Color3.fromRGB(180,50,50)
+Close.BorderSizePixel = 0
+Close.Parent = Main
 
-local closeCorner = Instance.new("UICorner")
-closeCorner.CornerRadius = UDim.new(0, 10)
-closeCorner.Parent = close
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0,10)
+CloseCorner.Parent = Close
 
--- Reopen button
-local reopen = Instance.new("TextButton")
-reopen.Size = UDim2.fromOffset(120, 42)
-reopen.Position = UDim2.fromOffset(20, 20)
-reopen.Text = "OPEN ADMIN"
-reopen.TextSize = 14
-reopen.Font = Enum.Font.GothamBold
-reopen.TextColor3 = Color3.new(1, 1, 1)
-reopen.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-reopen.Visible = false
-reopen.Parent = gui
+--// Reopen
+local Reopen = Instance.new("TextButton")
+Reopen.Size = UDim2.fromOffset(120,42)
+Reopen.Position = UDim2.fromOffset(20,20)
+Reopen.Text = "OPEN ADMIN"
+Reopen.TextSize = 14
+Reopen.Font = Enum.Font.GothamBold
+Reopen.TextColor3 = Color3.new(1,1,1)
+Reopen.BackgroundColor3 = Color3.fromRGB(45,45,55)
+Reopen.Visible = false
+Reopen.Parent = Gui
 
-local reopenCorner = Instance.new("UICorner")
-reopenCorner.CornerRadius = UDim.new(0, 10)
-reopenCorner.Parent = reopen
+local ReopenCorner = Instance.new("UICorner")
+ReopenCorner.CornerRadius = UDim.new(0,10)
+ReopenCorner.Parent = Reopen
 
--- Button creator
-local function makeButton(text, y)
-	local b = Instance.new("TextButton")
-	b.Size = UDim2.new(1, -30, 0, 42)
-	b.Position = UDim2.fromOffset(15, y)
-	b.Text = text
-	b.TextSize = 15
-	b.Font = Enum.Font.GothamBold
-	b.TextColor3 = Color3.new(1, 1, 1)
-	b.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-	b.BorderSizePixel = 0
-	b.AutoButtonColor = false
-	b.Parent = main
+--// Button creator
+local function CreateButton(text, y)
+	local Button = Instance.new("TextButton")
+	Button.Size = UDim2.new(1,-30,0,40)
+	Button.Position = UDim2.fromOffset(15,y)
+	Button.Text = text
+	Button.TextSize = 14
+	Button.Font = Enum.Font.GothamBold
+	Button.TextColor3 = Color3.new(1,1,1)
+	Button.BackgroundColor3 = Color3.fromRGB(45,45,55)
+	Button.BorderSizePixel = 0
+	Button.AutoButtonColor = false
+	Button.Parent = Main
 
 	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, 9)
-	c.Parent = b
+	c.CornerRadius = UDim.new(0,9)
+	c.Parent = Button
 
-	-- Hover animation
-	b.MouseEnter:Connect(function()
+	Button.MouseEnter:Connect(function()
 		TweenService:Create(
-			b,
-			TweenInfo.new(0.15),
-			{BackgroundColor3 = Color3.fromRGB(65, 65, 80)}
+			Button,
+			TweenInfo.new(.12),
+			{BackgroundColor3 = Color3.fromRGB(70,70,85)}
 		):Play()
 	end)
 
-	b.MouseLeave:Connect(function()
+	Button.MouseLeave:Connect(function()
 		TweenService:Create(
-			b,
-			TweenInfo.new(0.15),
-			{BackgroundColor3 = Color3.fromRGB(45, 45, 55)}
+			Button,
+			TweenInfo.new(.12),
+			{BackgroundColor3 = Color3.fromRGB(45,45,55)}
 		):Play()
 	end)
 
-	-- Click animation
-	b.MouseButton1Down:Connect(function()
-		TweenService:Create(
-			b,
-			TweenInfo.new(0.08),
-			{Size = UDim2.new(1, -38, 0, 38)}
-		):Play()
-	end)
-
-	b.MouseButton1Up:Connect(function()
-		TweenService:Create(
-			b,
-			TweenInfo.new(0.08),
-			{Size = UDim2.new(1, -30, 0, 42)}
-		):Play()
-	end)
-
-	return b
+	return Button
 end
 
--- Noclip
-local noclip = false
-local noclipButton = makeButton("Noclip: OFF", 60)
+--// Noclip
+local Noclip = false
+local NoclipButton = CreateButton("Noclip: OFF",55)
 
-noclipButton.MouseButton1Click:Connect(function()
-	noclip = not noclip
-	noclipButton.Text = "Noclip: " .. (noclip and "ON" or "OFF")
+NoclipButton.MouseButton1Click:Connect(function()
+	Noclip = not Noclip
+	NoclipButton.Text = "Noclip: "..(Noclip and "ON" or "OFF")
 end)
 
 RunService.Stepped:Connect(function()
-	if not noclip then
-		return
-	end
+	if not Noclip then return end
 
-	local character = player.Character
-	if not character then
-		return
-	end
+	local Character = LocalPlayer.Character
+	if not Character then return end
 
-	for _, obj in ipairs(character:GetDescendants()) do
-		if obj:IsA("BasePart") then
-			obj.CanCollide = false
+	for _,v in ipairs(Character:GetDescendants()) do
+		if v:IsA("BasePart") then
+			v.CanCollide = false
 		end
 	end
 end)
 
--- Fly
-local flying = false
-local flySpeed = 50
+--// FLY
+local Flying = false
+local FlySpeed = 60
+local FlyConnection
 
-local flyButton = makeButton("Fly: OFF", 112)
+local FlyButton = CreateButton("Fly: OFF",105)
 
-local bodyVelocity
-local bodyGyro
+local function StopFly()
+	Flying = false
+	FlyButton.Text = "Fly: OFF"
 
-flyButton.MouseButton1Click:Connect(function()
-	flying = not flying
-	flyButton.Text = "Fly: " .. (flying and "ON" or "OFF")
+	if FlyConnection then
+		FlyConnection:Disconnect()
+		FlyConnection = nil
+	end
 
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local Character = LocalPlayer.Character
+	local Root = Character and Character:FindFirstChild("HumanoidRootPart")
 
-	if flying and root then
-		bodyVelocity = Instance.new("BodyVelocity")
-		bodyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-		bodyVelocity.Velocity = Vector3.zero
-		bodyVelocity.Parent = root
+	if Root then
+		Root.AssemblyLinearVelocity = Vector3.zero
+	end
+end
 
-		bodyGyro = Instance.new("BodyGyro")
-		bodyGyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
-		bodyGyro.P = 10000
-		bodyGyro.Parent = root
+local function StartFly()
+	if Flying then return end
+
+	local Character = LocalPlayer.Character
+	local Root = Character and Character:FindFirstChild("HumanoidRootPart")
+
+	if not Root then return end
+
+	Flying = true
+	FlyButton.Text = "Fly: ON"
+
+	FlyConnection = RunService.RenderStepped:Connect(function()
+		if not Flying then return end
+
+		Character = LocalPlayer.Character
+		Root = Character and Character:FindFirstChild("HumanoidRootPart")
+
+		if not Character or not Root then
+			StopFly()
+			return
+		end
+
+		local Camera = workspace.CurrentCamera
+		local Humanoid = Character:FindFirstChildOfClass("Humanoid")
+
+		if not Humanoid then return end
+
+		local Direction = Vector3.zero
+
+		-- WASD movement
+		if UIS:IsKeyDown(Enum.KeyCode.W) then
+			Direction += Camera.CFrame.LookVector
+		end
+
+		if UIS:IsKeyDown(Enum.KeyCode.S) then
+			Direction -= Camera.CFrame.LookVector
+		end
+
+		if UIS:IsKeyDown(Enum.KeyCode.A) then
+			Direction -= Camera.CFrame.RightVector
+		end
+
+		if UIS:IsKeyDown(Enum.KeyCode.D) then
+			Direction += Camera.CFrame.RightVector
+		end
+
+		-- Up / down
+		if UIS:IsKeyDown(Enum.KeyCode.Space) then
+			Direction += Vector3.new(0,1,0)
+		end
+
+		if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
+			Direction -= Vector3.new(0,1,0)
+		end
+
+		if Direction.Magnitude > 0 then
+			Direction = Direction.Unit * FlySpeed
+		end
+
+		Root.AssemblyLinearVelocity = Direction
+	end)
+end
+
+FlyButton.MouseButton1Click:Connect(function()
+	if Flying then
+		StopFly()
 	else
-		if bodyVelocity then
-			bodyVelocity:Destroy()
-			bodyVelocity = nil
-		end
-
-		if bodyGyro then
-			bodyGyro:Destroy()
-			bodyGyro = nil
-		end
+		StartFly()
 	end
 end)
 
-RunService.RenderStepped:Connect(function()
-	if not flying then
+--// ESP
+local ESP = false
+local ESPButton = CreateButton("ESP: OFF",155)
+
+local function AddESP(plr)
+	if plr == LocalPlayer then return end
+	if not plr.Character then return end
+
+	if plr.Character:FindFirstChild("AdminESP") then
 		return
 	end
 
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-
-	if not root or not humanoid or not bodyVelocity then
-		return
-	end
-
-	local camera = workspace.CurrentCamera
-	bodyVelocity.Velocity = humanoid.MoveDirection * flySpeed
-
-	if bodyGyro then
-		bodyGyro.CFrame = camera.CFrame
-	end
-end)
-
--- ESP
-local esp = false
-local espButton = makeButton("ESP: OFF", 164)
-
-local function addESP(plr)
-	if plr == player then return end
-
-	local character = plr.Character
-	if not character then return end
-
-	if character:FindFirstChild("AdminESP") then
-		return
-	end
-
-	local highlight = Instance.new("Highlight")
-	highlight.Name = "AdminESP"
-	highlight.FillTransparency = 0.6
-	highlight.OutlineTransparency = 0
-	highlight.Parent = character
+	local Highlight = Instance.new("Highlight")
+	Highlight.Name = "AdminESP"
+	Highlight.FillTransparency = .65
+	Highlight.OutlineTransparency = 0
+	Highlight.Parent = plr.Character
 end
 
-local function removeESP(plr)
+local function RemoveESP(plr)
 	if plr.Character then
-		local h = plr.Character:FindFirstChild("AdminESP")
-
-		if h then
-			h:Destroy()
+		local Highlight = plr.Character:FindFirstChild("AdminESP")
+		if Highlight then
+			Highlight:Destroy()
 		end
 	end
 end
 
-espButton.MouseButton1Click:Connect(function()
-	esp = not esp
-	espButton.Text = "ESP: " .. (esp and "ON" or "OFF")
+ESPButton.MouseButton1Click:Connect(function()
+	ESP = not ESP
+	ESPButton.Text = "ESP: "..(ESP and "ON" or "OFF")
 
-	for _, plr in ipairs(Players:GetPlayers()) do
-		if esp then
-			addESP(plr)
+	for _,plr in ipairs(Players:GetPlayers()) do
+		if ESP then
+			AddESP(plr)
 		else
-			removeESP(plr)
+			RemoveESP(plr)
 		end
 	end
 end)
 
--- View player
-local viewButton = makeButton("View Player", 216)
+Players.PlayerAdded:Connect(function(plr)
+	plr.CharacterAdded:Connect(function()
+		task.wait(1)
 
-viewButton.MouseButton1Click:Connect(function()
-	local others = {}
-
-	for _, plr in ipairs(Players:GetPlayers()) do
-		if plr ~= player and plr.Character then
-			table.insert(others, plr)
+		if ESP then
+			AddESP(plr)
 		end
-	end
-
-	if #others > 0 then
-		local target = others[math.random(1, #others)]
-		local humanoid = target.Character:FindFirstChildOfClass("Humanoid")
-
-		if humanoid then
-			workspace.CurrentCamera.CameraSubject = humanoid
-		end
-	end
+	end)
 end)
 
--- Reset camera
-local resetView = makeButton("Reset View", 268)
+--// Reset camera
+local ResetView = CreateButton("Reset View",205)
 
-resetView.MouseButton1Click:Connect(function()
-	local character = player.Character
+ResetView.MouseButton1Click:Connect(function()
+	local Character = LocalPlayer.Character
+	local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
 
-	if character then
-		local humanoid = character:FindFirstChildOfClass("Humanoid")
-
-		if humanoid then
-			workspace.CurrentCamera.CameraSubject = humanoid
-		end
+	if Humanoid then
+		workspace.CurrentCamera.CameraSubject = Humanoid
 	end
 end)
 
--- Player count
-local info = Instance.new("TextLabel")
-info.Size = UDim2.new(1, -30, 0, 35)
-info.Position = UDim2.fromOffset(15, 325)
-info.BackgroundTransparency = 1
-info.TextColor3 = Color3.fromRGB(190, 190, 190)
-info.TextSize = 14
-info.Font = Enum.Font.Gotham
-info.Text = "Players: " .. #Players:GetPlayers()
-info.Parent = main
+--// PLAYER LIST
+local PlayerTitle = Instance.new("TextLabel")
+PlayerTitle.Size = UDim2.new(1,-30,0,30)
+PlayerTitle.Position = UDim2.fromOffset(15,250)
+PlayerTitle.BackgroundTransparency = 1
+PlayerTitle.Text = "PLAYER LIST"
+PlayerTitle.TextColor3 = Color3.new(1,1,1)
+PlayerTitle.TextSize = 16
+PlayerTitle.Font = Enum.Font.GothamBold
+PlayerTitle.TextXAlignment = Enum.TextXAlignment.Left
+PlayerTitle.Parent = Main
 
-Players.PlayerAdded:Connect(function()
-	info.Text = "Players: " .. #Players:GetPlayers()
-end)
+local PlayerList = Instance.new("ScrollingFrame")
+PlayerList.Size = UDim2.new(1,-30,0,170)
+PlayerList.Position = UDim2.fromOffset(15,285)
+PlayerList.BackgroundColor3 = Color3.fromRGB(18,18,22)
+PlayerList.BorderSizePixel = 0
+PlayerList.ScrollBarThickness = 5
+PlayerList.CanvasSize = UDim2.new(0,0,0,0)
+PlayerList.Parent = Main
 
-Players.PlayerRemoving:Connect(function()
-	info.Text = "Players: " .. #Players:GetPlayers()
-end)
+local ListCorner = Instance.new("UICorner")
+ListCorner.CornerRadius = UDim.new(0,8)
+ListCorner.Parent = PlayerList
 
--- Dragging
-local dragging = false
-local dragStart
-local startPosition
+local Layout = Instance.new("UIListLayout")
+Layout.Padding = UDim.new(0,5)
+Layout.Parent = PlayerList
 
-title.InputBegan:Connect(function(input)
+local function RefreshPlayers()
+	for _,v in ipairs(PlayerList:GetChildren()) do
+		if v:IsA("TextButton") then
+			v:Destroy()
+		end
+	end
+
+	local Count = 0
+
+	for _,plr in ipairs(Players:GetPlayers()) do
+		Count += 1
+
+		local Button = Instance.new("TextButton")
+		Button.Size = UDim2.new(1,-10,0,32)
+		Button.Text = plr.Name
+		Button.TextSize = 13
+		Button.Font = Enum.Font.Gotham
+		Button.TextColor3 = Color3.new(1,1,1)
+		Button.BackgroundColor3 = Color3.fromRGB(40,40,48)
+		Button.BorderSizePixel = 0
+		Button.AutoButtonColor = false
+		Button.Parent = PlayerList
+
+		local c = Instance.new("UICorner")
+		c.CornerRadius = UDim.new(0,7)
+		c.Parent = Button
+
+		Button.MouseEnter:Connect(function()
+			TweenService:Create(
+				Button,
+				TweenInfo.new(.1),
+				{BackgroundColor3 = Color3.fromRGB(65,65,75)}
+			):Play()
+		end)
+
+		Button.MouseLeave:Connect(function()
+			TweenService:Create(
+				Button,
+				TweenInfo.new(.1),
+				{BackgroundColor3 = Color3.fromRGB(40,40,48)}
+			):Play()
+		end)
+
+		Button.MouseButton1Click:Connect(function()
+			if plr.Character then
+				local Humanoid = plr.Character:FindFirstChildOfClass("Humanoid")
+
+				if Humanoid then
+					workspace.CurrentCamera.CameraSubject = Humanoid
+				end
+			end
+		end)
+	end
+
+	PlayerList.CanvasSize = UDim2.fromOffset(0,Count * 37)
+end
+
+Players.PlayerAdded:Connect(RefreshPlayers)
+Players.PlayerRemoving:Connect(RefreshPlayers)
+
+RefreshPlayers()
+
+--// Drag GUI
+local Dragging = false
+local DragStart
+local StartPosition
+
+Title.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = true
-		dragStart = input.Position
-		startPosition = main.Position
+		Dragging = true
+		DragStart = input.Position
+		StartPosition = Main.Position
 	end
 end)
 
-UserInputService.InputChanged:Connect(function(input)
-	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-		local delta = input.Position - dragStart
+UIS.InputChanged:Connect(function(input)
+	if Dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+		local Delta = input.Position - DragStart
 
-		main.Position = UDim2.new(
-			startPosition.X.Scale,
-			startPosition.X.Offset + delta.X,
-			startPosition.Y.Scale,
-			startPosition.Y.Offset + delta.Y
+		Main.Position = UDim2.new(
+			StartPosition.X.Scale,
+			StartPosition.X.Offset + Delta.X,
+			StartPosition.Y.Scale,
+			StartPosition.Y.Offset + Delta.Y
 		)
 	end
 end)
 
-UserInputService.InputEnded:Connect(function(input)
+UIS.InputEnded:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = false
+		Dragging = false
 	end
 end)
 
--- Smooth close
-close.MouseButton1Click:Connect(function()
-	local tween = TweenService:Create(
-		main,
-		TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.In),
+--// Close animation
+Close.MouseButton1Click:Connect(function()
+	local Tween = TweenService:Create(
+		Main,
+		TweenInfo.new(.25,Enum.EasingStyle.Back,Enum.EasingDirection.In),
 		{
-			Size = UDim2.fromOffset(0, 0),
+			Size = UDim2.fromOffset(0,0),
 			BackgroundTransparency = 1
 		}
 	)
 
-	tween:Play()
-	tween.Completed:Wait()
+	Tween:Play()
+	Tween.Completed:Wait()
 
-	main.Visible = false
-	main.Size = UDim2.fromOffset(320, 420)
-	main.BackgroundTransparency = 0
-	reopen.Visible = true
+	Main.Visible = false
+	Main.Size = UDim2.fromOffset(340,500)
+	Main.BackgroundTransparency = 0
+	Reopen.Visible = true
 end)
 
--- Smooth reopen
-reopen.MouseButton1Click:Connect(function()
-	reopen.Visible = false
-	main.Visible = true
-	main.Size = UDim2.fromOffset(0, 0)
+--// Reopen animation
+Reopen.MouseButton1Click:Connect(function()
+	Reopen.Visible = false
+	Main.Visible = true
+	Main.Size = UDim2.fromOffset(0,0)
 
 	TweenService:Create(
-		main,
-		TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-		{Size = UDim2.fromOffset(320, 420)}
+		Main,
+		TweenInfo.new(.3,Enum.EasingStyle.Back,Enum.EasingDirection.Out),
+		{Size = UDim2.fromOffset(340,500)}
 	):Play()
 end)
 
-print("Animated Admin loaded!")
+print("ADMIN GUI LOADED")
