@@ -1,267 +1,260 @@
--- RemoteMonitor.luaa
--- ONE SCRIPT - creates its own GUI
+-- CoolGuy Creation
+-- Fling / Fly / Noclip
 -- For your own Roblox Studio game
 
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
+local UIS = game:GetService("UserInputService")
 
 local Player = Players.LocalPlayer
+
+local Character
+local Humanoid
+local Root
+
+local function GetCharacter()
+	Character = Player.Character or Player.CharacterAdded:Wait()
+	Humanoid = Character:WaitForChild("Humanoid")
+	Root = Character:WaitForChild("HumanoidRootPart")
+end
+
+GetCharacter()
 
 --------------------------------------------------
 -- GUI
 --------------------------------------------------
 
 local Gui = Instance.new("ScreenGui")
-Gui.Name = "RemoteMonitor"
+Gui.Name = "CoolGuy Creation"
 Gui.ResetOnSpawn = false
 Gui.Parent = Player:WaitForChild("PlayerGui")
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.fromOffset(400, 450)
-Main.Position = UDim2.new(0, 20, 0.5, -225)
-Main.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+Main.Size = UDim2.fromOffset(300, 230)
+Main.Position = UDim2.new(0, 20, 0.5, -115)
+Main.BackgroundColor3 = Color3.fromRGB(20,20,20)
 Main.BorderSizePixel = 0
 Main.Parent = Gui
 
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
-
---------------------------------------------------
--- TITLE
---------------------------------------------------
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0,10)
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -50, 0, 40)
-Title.Position = UDim2.fromOffset(12, 5)
+Title.Size = UDim2.new(1,-50,0,40)
+Title.Position = UDim2.fromOffset(12,0)
 Title.BackgroundTransparency = 1
-Title.Text = "REMOTE MONITOR"
+Title.Text = "CoolGuy Creation"
 Title.TextColor3 = Color3.new(1,1,1)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 16
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Main
 
---------------------------------------------------
--- CLOSE
---------------------------------------------------
-
 local Close = Instance.new("TextButton")
-Close.Size = UDim2.fromOffset(30, 30)
-Close.Position = UDim2.new(1, -40, 0, 8)
-Close.BackgroundColor3 = Color3.fromRGB(150, 45, 45)
+Close.Size = UDim2.fromOffset(30,30)
+Close.Position = UDim2.new(1,-40,0,5)
+Close.BackgroundColor3 = Color3.fromRGB(150,45,45)
 Close.Text = "X"
 Close.TextColor3 = Color3.new(1,1,1)
 Close.Font = Enum.Font.GothamBold
-Close.TextSize = 12
 Close.Parent = Main
 
-Instance.new("UICorner", Close).CornerRadius = UDim.new(0, 6)
+Instance.new("UICorner", Close).CornerRadius = UDim.new(0,6)
 
 Close.MouseButton1Click:Connect(function()
 	Main.Visible = false
 end)
 
 --------------------------------------------------
--- POSITION
+-- BUTTON CREATOR
 --------------------------------------------------
 
-local Position = Instance.new("TextLabel")
-Position.Size = UDim2.new(1, -24, 0, 65)
-Position.Position = UDim2.fromOffset(12, 48)
-Position.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-Position.TextColor3 = Color3.new(1,1,1)
-Position.Font = Enum.Font.Code
-Position.TextSize = 14
-Position.TextXAlignment = Enum.TextXAlignment.Left
-Position.TextYAlignment = Enum.TextYAlignment.Center
-Position.Text = "POSITION\nX: 0    Y: 0    Z: 0"
-Position.Parent = Main
+local function Button(Text, Y)
+	local B = Instance.new("TextButton")
+	B.Size = UDim2.new(1,-24,0,42)
+	B.Position = UDim2.fromOffset(12,Y)
+	B.BackgroundColor3 = Color3.fromRGB(40,40,40)
+	B.Text = Text
+	B.TextColor3 = Color3.new(1,1,1)
+	B.Font = Enum.Font.GothamBold
+	B.TextSize = 13
+	B.Parent = Main
 
-Instance.new("UICorner", Position).CornerRadius = UDim.new(0, 7)
+	Instance.new("UICorner", B).CornerRadius = UDim.new(0,7)
 
---------------------------------------------------
--- STATUS
---------------------------------------------------
+	return B
+end
 
-local Status = Instance.new("TextLabel")
-Status.Size = UDim2.new(1, -24, 0, 25)
-Status.Position = UDim2.fromOffset(12, 120)
-Status.BackgroundTransparency = 1
-Status.Text = "● MONITORING"
-Status.TextColor3 = Color3.fromRGB(80, 255, 80)
-Status.Font = Enum.Font.GothamBold
-Status.TextSize = 12
-Status.TextXAlignment = Enum.TextXAlignment.Left
-Status.Parent = Main
+local FlyButton = Button("Fly: OFF",45)
+local NoclipButton = Button("Noclip: OFF",93)
+local FlingButton = Button("Fling",141)
 
 --------------------------------------------------
--- REMOTE LIST
+-- NOCLIP
 --------------------------------------------------
 
-local ListTitle = Instance.new("TextLabel")
-ListTitle.Size = UDim2.new(1, -24, 0, 25)
-ListTitle.Position = UDim2.fromOffset(12, 145)
-ListTitle.BackgroundTransparency = 1
-ListTitle.Text = "ACTIVE REMOTE EVENTS"
-ListTitle.TextColor3 = Color3.new(1,1,1)
-ListTitle.Font = Enum.Font.GothamBold
-ListTitle.TextSize = 12
-ListTitle.TextXAlignment = Enum.TextXAlignment.Left
-ListTitle.Parent = Main
+local Noclip = false
 
-local List = Instance.new("ScrollingFrame")
-List.Size = UDim2.new(1, -24, 0, 235)
-List.Position = UDim2.fromOffset(12, 170)
-List.BackgroundColor3 = Color3.fromRGB(10,10,10)
-List.BorderSizePixel = 0
-List.ScrollBarThickness = 5
-List.CanvasSize = UDim2.new(0,0,0,0)
-List.Parent = Main
+RunService.Stepped:Connect(function()
 
-Instance.new("UICorner", List).CornerRadius = UDim.new(0, 7)
+	if not Character then return end
 
-local Layout = Instance.new("UIListLayout")
-Layout.Padding = UDim.new(0, 3)
-Layout.Parent = List
-
---------------------------------------------------
--- CLEAR
---------------------------------------------------
-
-local Clear = Instance.new("TextButton")
-Clear.Size = UDim2.fromOffset(90, 30)
-Clear.Position = UDim2.new(1, -102, 1, -38)
-Clear.BackgroundColor3 = Color3.fromRGB(45,45,45)
-Clear.Text = "CLEAR"
-Clear.TextColor3 = Color3.new(1,1,1)
-Clear.Font = Enum.Font.GothamBold
-Clear.TextSize = 11
-Clear.Parent = Main
-
-Instance.new("UICorner", Clear).CornerRadius = UDim.new(0, 6)
-
-Clear.MouseButton1Click:Connect(function()
-
-	for _,v in ipairs(List:GetChildren()) do
-		if v:IsA("TextLabel") then
-			v:Destroy()
+	for _,Part in ipairs(Character:GetDescendants()) do
+		if Part:IsA("BasePart") then
+			Part.CanCollide = not Noclip
 		end
 	end
 
-	List.CanvasSize = UDim2.new(0,0,0,0)
+end)
+
+NoclipButton.MouseButton1Click:Connect(function()
+
+	Noclip = not Noclip
+
+	if Noclip then
+		NoclipButton.Text = "Noclip: ON"
+	else
+		NoclipButton.Text = "Noclip: OFF"
+	end
+
 end)
 
 --------------------------------------------------
--- ADD REMOTE
+-- FLY
 --------------------------------------------------
 
-local function AddRemote(Name)
+local Fly = false
+local FlySpeed = 60
 
-	local Entry = Instance.new("TextLabel")
+local FlyVelocity
+local FlyConnection
 
-	Entry.Size = UDim2.new(1, -8, 0, 45)
-	Entry.BackgroundColor3 = Color3.fromRGB(28,28,28)
-	Entry.TextColor3 = Color3.new(1,1,1)
-	Entry.Font = Enum.Font.Code
-	Entry.TextSize = 11
-	Entry.TextXAlignment = Enum.TextXAlignment.Left
-	Entry.TextYAlignment = Enum.TextYAlignment.Center
+FlyButton.MouseButton1Click:Connect(function()
 
-	Entry.Text =
-		"[" .. os.date("%H:%M:%S") .. "]  "
-		.. tostring(Name)
+	Fly = not Fly
 
-	Entry.Parent = List
+	if Fly then
 
-	Instance.new("UICorner", Entry).CornerRadius = UDim.new(0,5)
+		FlyButton.Text = "Fly: ON"
 
-	task.wait()
+		FlyVelocity = Instance.new("BodyVelocity")
+		FlyVelocity.MaxForce = Vector3.new(1e9,1e9,1e9)
+		FlyVelocity.Velocity = Vector3.zero
+		FlyVelocity.Parent = Root
 
-	List.CanvasSize = UDim2.new(
-		0,
-		0,
-		0,
-		Layout.AbsoluteContentSize.Y + 10
-	)
+		FlyConnection = RunService.RenderStepped:Connect(function()
 
-	List.CanvasPosition = Vector2.new(0, math.huge)
+			if not Fly or not Root then return end
 
-	-- Keep last 100
-	local Entries = {}
+			local Camera = workspace.CurrentCamera
+			local Direction = Vector3.zero
 
-	for _,v in ipairs(List:GetChildren()) do
-		if v:IsA("TextLabel") then
-			table.insert(Entries,v)
+			if UIS:IsKeyDown(Enum.KeyCode.W) then
+				Direction += Camera.CFrame.LookVector
+			end
+
+			if UIS:IsKeyDown(Enum.KeyCode.S) then
+				Direction -= Camera.CFrame.LookVector
+			end
+
+			if UIS:IsKeyDown(Enum.KeyCode.A) then
+				Direction -= Camera.CFrame.RightVector
+			end
+
+			if UIS:IsKeyDown(Enum.KeyCode.D) then
+				Direction += Camera.CFrame.RightVector
+			end
+
+			if UIS:IsKeyDown(Enum.KeyCode.Space) then
+				Direction += Vector3.yAxis
+			end
+
+			if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
+				Direction -= Vector3.yAxis
+			end
+
+			if Direction.Magnitude > 0 then
+				Direction = Direction.Unit * FlySpeed
+			end
+
+			FlyVelocity.Velocity = Direction
+
+		end)
+
+	else
+
+		FlyButton.Text = "Fly: OFF"
+
+		if FlyConnection then
+			FlyConnection:Disconnect()
+			FlyConnection = nil
 		end
-	end
 
-	if #Entries > 100 then
-		Entries[1]:Destroy()
-	end
-end
-
---------------------------------------------------
--- FIND REMOTES
---------------------------------------------------
-
-local function ScanRemotes()
-
-	for _,Object in ipairs(ReplicatedStorage:GetDescendants()) do
-
-		if Object:IsA("RemoteEvent") then
-
-			-- Show that the remote exists
-			AddRemote("FOUND: " .. Object:GetFullName())
-
+		if FlyVelocity then
+			FlyVelocity:Destroy()
+			FlyVelocity = nil
 		end
 
-	end
-
-end
-
-ScanRemotes()
-
---------------------------------------------------
--- NEW REMOTE DETECTION
---------------------------------------------------
-
-ReplicatedStorage.DescendantAdded:Connect(function(Object)
-
-	if Object:IsA("RemoteEvent") then
-
-		AddRemote("NEW: " .. Object:GetFullName())
+		if Root then
+			Root.AssemblyLinearVelocity = Vector3.zero
+		end
 
 	end
 
 end)
 
 --------------------------------------------------
--- POSITION
+-- PHYSICS FLING
 --------------------------------------------------
 
-RunService.RenderStepped:Connect(function()
-
-	local Character = Player.Character
-
-	if not Character then
-		return
-	end
-
-	local Root = Character:FindFirstChild("HumanoidRootPart")
+FlingButton.MouseButton1Click:Connect(function()
 
 	if not Root then
 		return
 	end
 
-	local P = Root.Position
+	-- Short physics burst upward/forward.
+	Root.AssemblyLinearVelocity =
+		Root.CFrame.LookVector * 120
+		+ Vector3.new(0,150,0)
 
-	Position.Text = string.format(
-		"POSITION\nX: %.0f    Y: %.0f    Z: %.0f",
-		P.X,
-		P.Y,
-		P.Z
-	)
+	Root.AssemblyAngularVelocity =
+		Vector3.new(0,80,0)
+
+	FlingButton.Text = "FLING!"
+
+	task.delay(0.5,function()
+		if FlingButton.Parent then
+			FlingButton.Text = "Fling"
+		end
+	end)
+
+end)
+
+--------------------------------------------------
+-- RESPAWN
+--------------------------------------------------
+
+Player.CharacterAdded:Connect(function()
+
+	task.wait(0.5)
+
+	GetCharacter()
+
+	Fly = false
+	Noclip = false
+
+	FlyButton.Text = "Fly: OFF"
+	NoclipButton.Text = "Noclip: OFF"
+
+	if FlyVelocity then
+		FlyVelocity:Destroy()
+		FlyVelocity = nil
+	end
+
+	if FlyConnection then
+		FlyConnection:Disconnect()
+		FlyConnection = nil
+	end
 
 end)
 
@@ -276,16 +269,14 @@ local StartPosition
 Title.InputBegan:Connect(function(Input)
 
 	if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-
 		Dragging = true
 		DragStart = Input.Position
 		StartPosition = Main.Position
-
 	end
 
 end)
 
-UserInputService.InputEnded:Connect(function(Input)
+UIS.InputEnded:Connect(function(Input)
 
 	if Input.UserInputType == Enum.UserInputType.MouseButton1 then
 		Dragging = false
@@ -293,15 +284,10 @@ UserInputService.InputEnded:Connect(function(Input)
 
 end)
 
-UserInputService.InputChanged:Connect(function(Input)
+UIS.InputChanged:Connect(function(Input)
 
-	if not Dragging then
-		return
-	end
-
-	if Input.UserInputType ~= Enum.UserInputType.MouseMovement then
-		return
-	end
+	if not Dragging then return end
+	if Input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
 
 	local Delta = Input.Position - DragStart
 
@@ -314,4 +300,4 @@ UserInputService.InputChanged:Connect(function(Input)
 
 end)
 
-print("REMOTE MONITOR LOADED")
+print("CoolGuy Creation loaded")
