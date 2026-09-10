@@ -1,303 +1,72 @@
--- CoolGuy Creation
--- Fling / Fly / Noclip
--- For your own Roblox Studio game
+-- RemoteMonitor.lua
+-- Touch knockback for your own Roblox experience
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UIS = game:GetService("UserInputService")
 
-local Player = Players.LocalPlayer
+local OWNER_USER_ID = 11522003214
+local KNOCKBACK = 120
+local UP_FORCE = 60
+local COOLDOWN = 1
 
-local Character
-local Humanoid
-local Root
+local lastHit = {}
 
-local function GetCharacter()
-	Character = Player.Character or Player.CharacterAdded:Wait()
-	Humanoid = Character:WaitForChild("Humanoid")
-	Root = Character:WaitForChild("HumanoidRootPart")
-end
-
-GetCharacter()
-
---------------------------------------------------
--- GUI
---------------------------------------------------
-
-local Gui = Instance.new("ScreenGui")
-Gui.Name = "CoolGuy Creation"
-Gui.ResetOnSpawn = false
-Gui.Parent = Player:WaitForChild("PlayerGui")
-
-local Main = Instance.new("Frame")
-Main.Size = UDim2.fromOffset(300, 230)
-Main.Position = UDim2.new(0, 20, 0.5, -115)
-Main.BackgroundColor3 = Color3.fromRGB(20,20,20)
-Main.BorderSizePixel = 0
-Main.Parent = Gui
-
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0,10)
-
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1,-50,0,40)
-Title.Position = UDim2.fromOffset(12,0)
-Title.BackgroundTransparency = 1
-Title.Text = "CoolGuy Creation"
-Title.TextColor3 = Color3.new(1,1,1)
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 16
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = Main
-
-local Close = Instance.new("TextButton")
-Close.Size = UDim2.fromOffset(30,30)
-Close.Position = UDim2.new(1,-40,0,5)
-Close.BackgroundColor3 = Color3.fromRGB(150,45,45)
-Close.Text = "X"
-Close.TextColor3 = Color3.new(1,1,1)
-Close.Font = Enum.Font.GothamBold
-Close.Parent = Main
-
-Instance.new("UICorner", Close).CornerRadius = UDim.new(0,6)
-
-Close.MouseButton1Click:Connect(function()
-	Main.Visible = false
-end)
-
---------------------------------------------------
--- BUTTON CREATOR
---------------------------------------------------
-
-local function Button(Text, Y)
-	local B = Instance.new("TextButton")
-	B.Size = UDim2.new(1,-24,0,42)
-	B.Position = UDim2.fromOffset(12,Y)
-	B.BackgroundColor3 = Color3.fromRGB(40,40,40)
-	B.Text = Text
-	B.TextColor3 = Color3.new(1,1,1)
-	B.Font = Enum.Font.GothamBold
-	B.TextSize = 13
-	B.Parent = Main
-
-	Instance.new("UICorner", B).CornerRadius = UDim.new(0,7)
-
-	return B
-end
-
-local FlyButton = Button("Fly: OFF",45)
-local NoclipButton = Button("Noclip: OFF",93)
-local FlingButton = Button("Fling",141)
-
---------------------------------------------------
--- NOCLIP
---------------------------------------------------
-
-local Noclip = false
-
-RunService.Stepped:Connect(function()
-
-	if not Character then return end
-
-	for _,Part in ipairs(Character:GetDescendants()) do
-		if Part:IsA("BasePart") then
-			Part.CanCollide = not Noclip
-		end
-	end
-
-end)
-
-NoclipButton.MouseButton1Click:Connect(function()
-
-	Noclip = not Noclip
-
-	if Noclip then
-		NoclipButton.Text = "Noclip: ON"
-	else
-		NoclipButton.Text = "Noclip: OFF"
-	end
-
-end)
-
---------------------------------------------------
--- FLY
---------------------------------------------------
-
-local Fly = false
-local FlySpeed = 60
-
-local FlyVelocity
-local FlyConnection
-
-FlyButton.MouseButton1Click:Connect(function()
-
-	Fly = not Fly
-
-	if Fly then
-
-		FlyButton.Text = "Fly: ON"
-
-		FlyVelocity = Instance.new("BodyVelocity")
-		FlyVelocity.MaxForce = Vector3.new(1e9,1e9,1e9)
-		FlyVelocity.Velocity = Vector3.zero
-		FlyVelocity.Parent = Root
-
-		FlyConnection = RunService.RenderStepped:Connect(function()
-
-			if not Fly or not Root then return end
-
-			local Camera = workspace.CurrentCamera
-			local Direction = Vector3.zero
-
-			if UIS:IsKeyDown(Enum.KeyCode.W) then
-				Direction += Camera.CFrame.LookVector
-			end
-
-			if UIS:IsKeyDown(Enum.KeyCode.S) then
-				Direction -= Camera.CFrame.LookVector
-			end
-
-			if UIS:IsKeyDown(Enum.KeyCode.A) then
-				Direction -= Camera.CFrame.RightVector
-			end
-
-			if UIS:IsKeyDown(Enum.KeyCode.D) then
-				Direction += Camera.CFrame.RightVector
-			end
-
-			if UIS:IsKeyDown(Enum.KeyCode.Space) then
-				Direction += Vector3.yAxis
-			end
-
-			if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
-				Direction -= Vector3.yAxis
-			end
-
-			if Direction.Magnitude > 0 then
-				Direction = Direction.Unit * FlySpeed
-			end
-
-			FlyVelocity.Velocity = Direction
-
-		end)
-
-	else
-
-		FlyButton.Text = "Fly: OFF"
-
-		if FlyConnection then
-			FlyConnection:Disconnect()
-			FlyConnection = nil
-		end
-
-		if FlyVelocity then
-			FlyVelocity:Destroy()
-			FlyVelocity = nil
-		end
-
-		if Root then
-			Root.AssemblyLinearVelocity = Vector3.zero
-		end
-
-	end
-
-end)
-
---------------------------------------------------
--- PHYSICS FLING
---------------------------------------------------
-
-FlingButton.MouseButton1Click:Connect(function()
-
-	if not Root then
+local function setupCharacter(player, character)
+	if player.UserId ~= OWNER_USER_ID then
 		return
 	end
 
-	-- Short physics burst upward/forward.
-	Root.AssemblyLinearVelocity =
-		Root.CFrame.LookVector * 120
-		+ Vector3.new(0,150,0)
+	local root = character:WaitForChild("HumanoidRootPart")
 
-	Root.AssemblyAngularVelocity =
-		Vector3.new(0,80,0)
-
-	FlingButton.Text = "FLING!"
-
-	task.delay(0.5,function()
-		if FlingButton.Parent then
-			FlingButton.Text = "Fling"
+	root.Touched:Connect(function(hit)
+		local otherCharacter = hit:FindFirstAncestorOfClass("Model")
+		if not otherCharacter or otherCharacter == character then
+			return
 		end
+
+		local otherPlayer = Players:GetPlayerFromCharacter(otherCharacter)
+		local otherRoot = otherCharacter:FindFirstChild("HumanoidRootPart")
+
+		if not otherPlayer or not otherRoot then
+			return
+		end
+
+		if lastHit[otherPlayer] and os.clock() - lastHit[otherPlayer] < COOLDOWN then
+			return
+		end
+
+		lastHit[otherPlayer] = os.clock()
+
+		local direction = otherRoot.Position - root.Position
+
+		if direction.Magnitude < 0.1 then
+			direction = Vector3.new(0, 0, 1)
+		end
+
+		direction = direction.Unit
+
+		otherRoot:ApplyImpulse(
+			(direction * KNOCKBACK + Vector3.new(0, UP_FORCE, 0))
+			* otherRoot.AssemblyMass
+		)
+	end)
+end
+
+local function setupPlayer(player)
+	if player.UserId ~= OWNER_USER_ID then
+		return
+	end
+
+	player.CharacterAdded:Connect(function(character)
+		setupCharacter(player, character)
 	end)
 
-end)
-
---------------------------------------------------
--- RESPAWN
---------------------------------------------------
-
-Player.CharacterAdded:Connect(function()
-
-	task.wait(0.5)
-
-	GetCharacter()
-
-	Fly = false
-	Noclip = false
-
-	FlyButton.Text = "Fly: OFF"
-	NoclipButton.Text = "Noclip: OFF"
-
-	if FlyVelocity then
-		FlyVelocity:Destroy()
-		FlyVelocity = nil
+	if player.Character then
+		setupCharacter(player, player.Character)
 	end
+end
 
-	if FlyConnection then
-		FlyConnection:Disconnect()
-		FlyConnection = nil
-	end
+Players.PlayerAdded:Connect(setupPlayer)
 
-end)
-
---------------------------------------------------
--- DRAG
---------------------------------------------------
-
-local Dragging = false
-local DragStart
-local StartPosition
-
-Title.InputBegan:Connect(function(Input)
-
-	if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-		Dragging = true
-		DragStart = Input.Position
-		StartPosition = Main.Position
-	end
-
-end)
-
-UIS.InputEnded:Connect(function(Input)
-
-	if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-		Dragging = false
-	end
-
-end)
-
-UIS.InputChanged:Connect(function(Input)
-
-	if not Dragging then return end
-	if Input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
-
-	local Delta = Input.Position - DragStart
-
-	Main.Position = UDim2.new(
-		StartPosition.X.Scale,
-		StartPosition.X.Offset + Delta.X,
-		StartPosition.Y.Scale,
-		StartPosition.Y.Offset + Delta.Y
-	)
-
-end)
-
-print("CoolGuy Creation loaded")
+for _, player in ipairs(Players:GetPlayers()) do
+	setupPlayer(player)
+end
