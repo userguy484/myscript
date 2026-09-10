@@ -17,16 +17,22 @@ end
 
 UpdateCharacter()
 
+--------------------------------------------------
+-- SETTINGS
+--------------------------------------------------
+
 local NoclipEnabled = false
 local FlyEnabled = false
 local ESPEnabled = false
 local OrbitEnabled = false
+local AimbotEnabled = false
 
 local SelectedPlayer = nil
 
 local NoclipConnection
 local FlyConnection
-local OrbitThread
+local OrbitConnection
+local AimbotConnection
 
 local OriginalCollision = {}
 local ESPObjects = {}
@@ -40,52 +46,72 @@ Gui.Name = "AdminGui"
 Gui.ResetOnSpawn = false
 Gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
-Instance.new("UICorner",Gui).CornerRadius = UDim.new(0,14)
-
 local OpenButton = Instance.new("TextButton")
-OpenButton.Size = UDim2.new(0,140,0,40)
-OpenButton.Position = UDim2.new(0.5,-70,0,15)
+OpenButton.Size = UDim2.new(0,120,0,34)
+OpenButton.Position = UDim2.new(0.5,-60,0,12)
 OpenButton.BackgroundColor3 = Color3.fromRGB(25,25,25)
 OpenButton.TextColor3 = Color3.new(1,1,1)
 OpenButton.Text = "OPEN ADMIN"
 OpenButton.Font = Enum.Font.GothamBold
-OpenButton.TextSize = 14
+OpenButton.TextSize = 12
 OpenButton.Visible = false
 OpenButton.Parent = Gui
 
-Instance.new("UICorner",OpenButton).CornerRadius = UDim.new(0,10)
+Instance.new("UICorner",OpenButton).CornerRadius = UDim.new(0,8)
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0,360,0,625)
-Main.Position = UDim2.new(0.5,-180,0.5,-312)
+Main.Size = UDim2.new(0,300,0,450)
+Main.Position = UDim2.new(0.5,-150,0.5,-225)
 Main.BackgroundColor3 = Color3.fromRGB(20,20,20)
 Main.BorderSizePixel = 0
 Main.Parent = Gui
 
-Instance.new("UICorner",Main).CornerRadius = UDim.new(0,14)
+Instance.new("UICorner",Main).CornerRadius = UDim.new(0,12)
+
+--------------------------------------------------
+-- TITLE
+--------------------------------------------------
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1,-55,0,45)
-Title.Position = UDim2.new(0,15,0,5)
+Title.Size = UDim2.new(1,-50,0,40)
+Title.Position = UDim2.new(0,12,0,3)
 Title.BackgroundTransparency = 1
 Title.Text = "ADMIN PANEL"
 Title.TextColor3 = Color3.new(1,1,1)
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 20
+Title.TextSize = 17
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Main
 
 local Close = Instance.new("TextButton")
-Close.Size = UDim2.new(0,35,0,35)
-Close.Position = UDim2.new(1,-45,0,8)
+Close.Size = UDim2.new(0,30,0,30)
+Close.Position = UDim2.new(1,-38,0,6)
 Close.BackgroundColor3 = Color3.fromRGB(150,45,45)
 Close.Text = "X"
 Close.TextColor3 = Color3.new(1,1,1)
 Close.Font = Enum.Font.GothamBold
-Close.TextSize = 16
+Close.TextSize = 13
 Close.Parent = Main
 
-Instance.new("UICorner",Close).CornerRadius = UDim.new(0,9)
+Instance.new("UICorner",Close).CornerRadius = UDim.new(0,7)
+
+--------------------------------------------------
+-- SCROLL AREA
+--------------------------------------------------
+
+local Scroll = Instance.new("ScrollingFrame")
+Scroll.Size = UDim2.new(1,-16,1,-52)
+Scroll.Position = UDim2.new(0,8,0,45)
+Scroll.BackgroundTransparency = 1
+Scroll.BorderSizePixel = 0
+Scroll.ScrollBarThickness = 4
+Scroll.CanvasSize = UDim2.new(0,0,0,850)
+Scroll.Parent = Main
+
+local Content = Instance.new("Frame")
+Content.Size = UDim2.new(1,-8,0,840)
+Content.BackgroundTransparency = 1
+Content.Parent = Scroll
 
 --------------------------------------------------
 -- BUTTON CREATOR
@@ -94,17 +120,17 @@ Instance.new("UICorner",Close).CornerRadius = UDim.new(0,9)
 local function CreateButton(text,y)
 
 	local Button = Instance.new("TextButton")
-	Button.Size = UDim2.new(1,-30,0,40)
-	Button.Position = UDim2.new(0,15,0,y)
+	Button.Size = UDim2.new(1,-10,0,36)
+	Button.Position = UDim2.new(0,5,0,y)
 	Button.BackgroundColor3 = Color3.fromRGB(35,35,35)
 	Button.TextColor3 = Color3.new(1,1,1)
 	Button.Text = text
 	Button.Font = Enum.Font.GothamBold
-	Button.TextSize = 14
+	Button.TextSize = 12
 	Button.AutoButtonColor = false
-	Button.Parent = Main
+	Button.Parent = Content
 
-	Instance.new("UICorner",Button).CornerRadius = UDim.new(0,9)
+	Instance.new("UICorner",Button).CornerRadius = UDim.new(0,8)
 
 	Button.MouseEnter:Connect(function()
 		Button.BackgroundColor3 = Color3.fromRGB(50,50,50)
@@ -121,53 +147,62 @@ end
 -- BUTTONS
 --------------------------------------------------
 
-local NoclipButton = CreateButton("Noclip: OFF",55)
-local FlyButton = CreateButton("Fly: OFF",100)
-local ESPButton = CreateButton("ESP: OFF",145)
-local ViewButton = CreateButton("View Selected",190)
-local ResetViewButton = CreateButton("Reset View",235)
+local NoclipButton = CreateButton("Noclip: OFF",5)
+local FlyButton = CreateButton("Fly: OFF",47)
+local ESPButton = CreateButton("ESP: OFF",89)
+local AimbotButton = CreateButton("Aimbot: OFF",131)
+local ViewButton = CreateButton("View Selected",173)
+local ResetViewButton = CreateButton("Reset View",215)
+local OrbitButton = CreateButton("Orbit Player: OFF",257)
+
+--------------------------------------------------
+-- PLAYER LIST TITLE
+--------------------------------------------------
+
+local PlayerTitle = Instance.new("TextLabel")
+PlayerTitle.Size = UDim2.new(1,-10,0,30)
+PlayerTitle.Position = UDim2.new(0,5,0,302)
+PlayerTitle.BackgroundTransparency = 1
+PlayerTitle.Text = "PLAYER LIST"
+PlayerTitle.TextColor3 = Color3.new(1,1,1)
+PlayerTitle.Font = Enum.Font.GothamBold
+PlayerTitle.TextSize = 13
+PlayerTitle.TextXAlignment = Enum.TextXAlignment.Left
+PlayerTitle.Parent = Content
 
 --------------------------------------------------
 -- PLAYER LIST
 --------------------------------------------------
 
-local PlayerTitle = Instance.new("TextLabel")
-PlayerTitle.Size = UDim2.new(1,-30,0,30)
-PlayerTitle.Position = UDim2.new(0,15,0,280)
-PlayerTitle.BackgroundTransparency = 1
-PlayerTitle.Text = "PLAYER LIST"
-PlayerTitle.TextColor3 = Color3.new(1,1,1)
-PlayerTitle.Font = Enum.Font.GothamBold
-PlayerTitle.TextSize = 15
-PlayerTitle.TextXAlignment = Enum.TextXAlignment.Left
-PlayerTitle.Parent = Main
-
 local PlayerList = Instance.new("ScrollingFrame")
-PlayerList.Size = UDim2.new(1,-30,0,215)
-PlayerList.Position = UDim2.new(0,15,0,315)
+PlayerList.Size = UDim2.new(1,-10,0,300)
+PlayerList.Position = UDim2.new(0,5,0,332)
 PlayerList.BackgroundColor3 = Color3.fromRGB(15,15,15)
 PlayerList.BorderSizePixel = 0
-PlayerList.ScrollBarThickness = 5
-PlayerList.Parent = Main
+PlayerList.ScrollBarThickness = 4
+PlayerList.CanvasSize = UDim2.new(0,0,0,0)
+PlayerList.Parent = Content
 
-Instance.new("UICorner",PlayerList).CornerRadius = UDim.new(0,9)
+Instance.new("UICorner",PlayerList).CornerRadius = UDim.new(0,8)
 
 local Layout = Instance.new("UIListLayout")
-Layout.Padding = UDim.new(0,5)
+Layout.Padding = UDim.new(0,4)
 Layout.Parent = PlayerList
 
+--------------------------------------------------
+-- SELECTED PLAYER
+--------------------------------------------------
+
 local SelectedLabel = Instance.new("TextLabel")
-SelectedLabel.Size = UDim2.new(1,-30,0,30)
-SelectedLabel.Position = UDim2.new(0,15,0,540)
+SelectedLabel.Size = UDim2.new(1,-10,0,30)
+SelectedLabel.Position = UDim2.new(0,5,0,642)
 SelectedLabel.BackgroundTransparency = 1
 SelectedLabel.Text = "Selected: None"
 SelectedLabel.TextColor3 = Color3.fromRGB(200,200,200)
 SelectedLabel.Font = Enum.Font.Gotham
-SelectedLabel.TextSize = 13
+SelectedLabel.TextSize = 12
 SelectedLabel.TextXAlignment = Enum.TextXAlignment.Left
-SelectedLabel.Parent = Main
-
-local OrbitButton = CreateButton("Orbit Player: OFF",575)
+SelectedLabel.Parent = Content
 
 --------------------------------------------------
 -- REFRESH PLAYER LIST
@@ -186,16 +221,16 @@ local function RefreshPlayers()
 		if player ~= LocalPlayer then
 
 			local Button = Instance.new("TextButton")
-			Button.Size = UDim2.new(1,-10,0,32)
+			Button.Size = UDim2.new(1,-8,0,32)
 			Button.BackgroundColor3 = Color3.fromRGB(30,30,30)
 			Button.TextColor3 = Color3.new(1,1,1)
 			Button.Text = player.DisplayName.."  @"..player.Name
 			Button.Font = Enum.Font.Gotham
-			Button.TextSize = 12
+			Button.TextSize = 11
 			Button.AutoButtonColor = false
 			Button.Parent = PlayerList
 
-			Instance.new("UICorner",Button).CornerRadius = UDim.new(0,7)
+			Instance.new("UICorner",Button).CornerRadius = UDim.new(0,6)
 
 			Button.MouseButton1Click:Connect(function()
 
@@ -217,7 +252,7 @@ local function RefreshPlayers()
 		0,
 		0,
 		0,
-		Layout.AbsoluteContentSize.Y + 10
+		Layout.AbsoluteContentSize.Y + 8
 	)
 end
 
@@ -228,6 +263,7 @@ Players.PlayerAdded:Connect(RefreshPlayers)
 Players.PlayerRemoving:Connect(function(player)
 
 	if SelectedPlayer == player then
+
 		SelectedPlayer = nil
 		SelectedLabel.Text = "Selected: None"
 
@@ -235,6 +271,7 @@ Players.PlayerRemoving:Connect(function(player)
 			OrbitEnabled = false
 			OrbitButton.Text = "Orbit Player: OFF"
 		end
+
 	end
 
 	RefreshPlayers()
@@ -271,7 +308,9 @@ local function SetNoclip(enabled)
 
 	NoclipConnection = RunService.Stepped:Connect(function()
 
-		if not Character then return end
+		if not Character then
+			return
+		end
 
 		for _,part in ipairs(Character:GetDescendants()) do
 
@@ -282,6 +321,7 @@ local function SetNoclip(enabled)
 				end
 
 				part.CanCollide = false
+
 			end
 		end
 	end)
@@ -306,7 +346,9 @@ local Keys = {
 
 UserInputService.InputBegan:Connect(function(input,processed)
 
-	if processed then return end
+	if processed then
+		return
+	end
 
 	if input.KeyCode == Enum.KeyCode.W then Keys.W = true end
 	if input.KeyCode == Enum.KeyCode.A then Keys.A = true end
@@ -314,6 +356,7 @@ UserInputService.InputBegan:Connect(function(input,processed)
 	if input.KeyCode == Enum.KeyCode.D then Keys.D = true end
 	if input.KeyCode == Enum.KeyCode.Space then Keys.Space = true end
 	if input.KeyCode == Enum.KeyCode.LeftControl then Keys.Ctrl = true end
+
 end)
 
 UserInputService.InputEnded:Connect(function(input)
@@ -324,6 +367,7 @@ UserInputService.InputEnded:Connect(function(input)
 	if input.KeyCode == Enum.KeyCode.D then Keys.D = false end
 	if input.KeyCode == Enum.KeyCode.Space then Keys.Space = false end
 	if input.KeyCode == Enum.KeyCode.LeftControl then Keys.Ctrl = false end
+
 end)
 
 local function SetFly(enabled)
@@ -350,7 +394,9 @@ local function SetFly(enabled)
 
 	FlyConnection = RunService.RenderStepped:Connect(function()
 
-		if not Root or not Root.Parent then return end
+		if not Root or not Root.Parent then
+			return
+		end
 
 		local cf = Camera.CFrame
 		local direction = Vector3.zero
@@ -367,6 +413,7 @@ local function SetFly(enabled)
 		end
 
 		Root.AssemblyLinearVelocity = direction
+
 	end)
 end
 
@@ -381,10 +428,13 @@ end)
 local function RemoveESP()
 
 	for _,objects in pairs(ESPObjects) do
+
 		for _,object in ipairs(objects) do
+
 			if object and object.Parent then
 				object:Destroy()
 			end
+
 		end
 	end
 
@@ -393,11 +443,19 @@ end
 
 local function AddESP(player)
 
-	if player == LocalPlayer then return end
-	if ESPObjects[player] then return end
+	if player == LocalPlayer then
+		return
+	end
+
+	if ESPObjects[player] then
+		return
+	end
 
 	local character = player.Character
-	if not character then return end
+
+	if not character then
+		return
+	end
 
 	local Highlight = Instance.new("Highlight")
 	Highlight.Name = "AdminESP"
@@ -413,8 +471,10 @@ local function SetESP(enabled)
 	ESPEnabled = enabled
 
 	if not enabled then
+
 		ESPButton.Text = "ESP: OFF"
 		RemoveESP()
+
 		return
 	end
 
@@ -438,7 +498,126 @@ Players.PlayerAdded:Connect(function(player)
 		if ESPEnabled then
 			AddESP(player)
 		end
+
 	end)
+end)
+
+--------------------------------------------------
+-- AIMBOT
+--------------------------------------------------
+
+local function GetClosestPlayer()
+
+	local closestPlayer = nil
+	local closestDistance = math.huge
+
+	for _,player in ipairs(Players:GetPlayers()) do
+
+		if player ~= LocalPlayer then
+
+			local character = player.Character
+
+			if character then
+
+				local targetHumanoid =
+					character:FindFirstChildOfClass("Humanoid")
+
+				local targetRoot =
+					character:FindFirstChild("HumanoidRootPart")
+
+				if targetHumanoid
+					and targetRoot
+					and targetHumanoid.Health > 0 then
+
+					local screenPosition,visible =
+						Camera:WorldToViewportPoint(targetRoot.Position)
+
+					if visible then
+
+						local center =
+							Vector2.new(
+								Camera.ViewportSize.X / 2,
+								Camera.ViewportSize.Y / 2
+							)
+
+						local targetPosition =
+							Vector2.new(
+								screenPosition.X,
+								screenPosition.Y
+							)
+
+						local distance =
+							(targetPosition - center).Magnitude
+
+						if distance < closestDistance then
+
+							closestDistance = distance
+							closestPlayer = player
+
+						end
+					end
+				end
+			end
+		end
+	end
+
+	return closestPlayer
+end
+
+local function SetAimbot(enabled)
+
+	AimbotEnabled = enabled
+
+	if AimbotConnection then
+		AimbotConnection:Disconnect()
+		AimbotConnection = nil
+	end
+
+	if not enabled then
+
+		AimbotButton.Text = "Aimbot: OFF"
+
+		return
+	end
+
+	AimbotButton.Text = "Aimbot: ON"
+
+	AimbotConnection = RunService.RenderStepped:Connect(function()
+
+		local target = SelectedPlayer or GetClosestPlayer()
+
+		if not target then
+			return
+		end
+
+		local character = target.Character
+
+		if not character then
+			return
+		end
+
+		local targetHumanoid =
+			character:FindFirstChildOfClass("Humanoid")
+
+		local targetRoot =
+			character:FindFirstChild("HumanoidRootPart")
+
+		if not targetHumanoid
+			or not targetRoot
+			or targetHumanoid.Health <= 0 then
+			return
+		end
+
+		Camera.CFrame = CFrame.lookAt(
+			Camera.CFrame.Position,
+			targetRoot.Position
+		)
+
+	end)
+end
+
+AimbotButton.MouseButton1Click:Connect(function()
+	SetAimbot(not AimbotEnabled)
 end)
 
 --------------------------------------------------
@@ -459,20 +638,34 @@ ViewButton.MouseButton1Click:Connect(function()
 	end
 
 	local character = SelectedPlayer.Character
-	if not character then return end
 
-	local targetHumanoid = character:FindFirstChildOfClass("Humanoid")
-	if not targetHumanoid then return end
+	if not character then
+		return
+	end
+
+	local targetHumanoid =
+		character:FindFirstChildOfClass("Humanoid")
+
+	if not targetHumanoid then
+		return
+	end
 
 	Camera.CameraType = Enum.CameraType.Custom
 	Camera.CameraSubject = targetHumanoid
+
 end)
+
+--------------------------------------------------
+-- RESET VIEW
+--------------------------------------------------
 
 ResetViewButton.MouseButton1Click:Connect(function()
 
 	if Humanoid then
+
 		Camera.CameraType = Enum.CameraType.Custom
 		Camera.CameraSubject = Humanoid
+
 	end
 end)
 
@@ -480,34 +673,60 @@ end)
 -- ORBIT PLAYER
 --------------------------------------------------
 
-local function OrbitSelected()
+local function StartOrbit()
 
-	if not OrbitEnabled then return end
-	if not SelectedPlayer then return end
-	if not Root or not Root.Parent then return end
+	if OrbitConnection then
+		OrbitConnection:Disconnect()
+		OrbitConnection = nil
+	end
 
-	local targetCharacter = SelectedPlayer.Character
-	if not targetCharacter then return end
+	OrbitConnection = RunService.RenderStepped:Connect(function()
 
-	local targetRoot = targetCharacter:FindFirstChild("HumanoidRootPart")
-	if not targetRoot then return end
+		if not OrbitEnabled then
+			return
+		end
 
-	local time = os.clock()
+		if not SelectedPlayer then
+			return
+		end
 
-	local radius = 6
-	local height = 2
-	local speed = 3
+		if not Root or not Root.Parent then
+			return
+		end
 
-	local x = math.cos(time * speed) * radius
-	local z = math.sin(time * speed) * radius
+		local character = SelectedPlayer.Character
 
-	Root.CFrame = CFrame.new(
-		targetRoot.Position + Vector3.new(x,height,z),
-		targetRoot.Position
-	)
+		if not character then
+			return
+		end
 
-	Root.AssemblyLinearVelocity = Vector3.zero
-	Root.AssemblyAngularVelocity = Vector3.zero
+		local targetRoot =
+			character:FindFirstChild("HumanoidRootPart")
+
+		if not targetRoot then
+			return
+		end
+
+		local time = os.clock()
+
+		local radius = 6
+		local height = 2
+		local speed = 3
+
+		local x = math.cos(time * speed) * radius
+		local z = math.sin(time * speed) * radius
+
+		local position =
+			targetRoot.Position +
+			Vector3.new(x,height,z)
+
+		Root.CFrame =
+			CFrame.new(position,targetRoot.Position)
+
+		Root.AssemblyLinearVelocity = Vector3.zero
+		Root.AssemblyAngularVelocity = Vector3.zero
+
+	end)
 end
 
 OrbitButton.MouseButton1Click:Connect(function()
@@ -532,21 +751,16 @@ OrbitButton.MouseButton1Click:Connect(function()
 	if OrbitEnabled then
 
 		OrbitButton.Text = "Orbit Player: ON"
-
-		OrbitThread = task.spawn(function()
-
-			while OrbitEnabled do
-
-				OrbitSelected()
-
-				task.wait()
-
-			end
-		end)
+		StartOrbit()
 
 	else
 
 		OrbitButton.Text = "Orbit Player: OFF"
+
+		if OrbitConnection then
+			OrbitConnection:Disconnect()
+			OrbitConnection = nil
+		end
 
 	end
 end)
@@ -556,13 +770,17 @@ end)
 --------------------------------------------------
 
 Close.MouseButton1Click:Connect(function()
+
 	Main.Visible = false
 	OpenButton.Visible = true
+
 end)
 
 OpenButton.MouseButton1Click:Connect(function()
+
 	OpenButton.Visible = false
 	Main.Visible = true
+
 end)
 
 --------------------------------------------------
@@ -586,14 +804,20 @@ Title.InputBegan:Connect(function(input)
 			if input.UserInputState == Enum.UserInputState.End then
 				Dragging = false
 			end
+
 		end)
 	end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
 
-	if not Dragging then return end
-	if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+	if not Dragging then
+		return
+	end
+
+	if input.UserInputType ~= Enum.UserInputType.MouseMovement then
+		return
+	end
 
 	local Delta = input.Position - DragStart
 
@@ -603,6 +827,7 @@ UserInputService.InputChanged:Connect(function(input)
 		StartPosition.Y.Scale,
 		StartPosition.Y.Offset + Delta.Y
 	)
+
 end)
 
 --------------------------------------------------
@@ -611,22 +836,39 @@ end)
 
 LocalPlayer.CharacterAdded:Connect(function()
 
+	NoclipEnabled = false
+	FlyEnabled = false
 	OrbitEnabled = false
+
+	NoclipButton.Text = "Noclip: OFF"
+	FlyButton.Text = "Fly: OFF"
 	OrbitButton.Text = "Orbit Player: OFF"
+
+	if NoclipConnection then
+		NoclipConnection:Disconnect()
+		NoclipConnection = nil
+	end
+
+	if FlyConnection then
+		FlyConnection:Disconnect()
+		FlyConnection = nil
+	end
+
+	if OrbitConnection then
+		OrbitConnection:Disconnect()
+		OrbitConnection = nil
+	end
 
 	task.wait(0.5)
 
 	UpdateCharacter()
-
-	if NoclipEnabled then
-		SetNoclip(true)
-	end
 
 	if ESPEnabled then
 
 		for _,player in ipairs(Players:GetPlayers()) do
 			AddESP(player)
 		end
+
 	end
 end)
 
