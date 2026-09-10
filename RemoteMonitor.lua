@@ -1,103 +1,95 @@
 -- RemoteMonitor.lua
--- Admin panel: ESP + Fly + Noclip
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
+local UIS = game:GetService("UserInputService")
 
-local player = Players.LocalPlayer
-local camera = workspace.CurrentCamera
+local LP = Players.LocalPlayer
 
-local espEnabled = false
-local flyEnabled = false
-local noclipEnabled = false
-local flySpeed = 60
+local fly = false
+local noclip = false
+local speed = 60
+local char, hum, root
 
-local character
-local humanoid
-local root
-
-local function updateCharacter()
-	character = player.Character or player.CharacterAdded:Wait()
-	humanoid = character:WaitForChild("Humanoid")
-	root = character:WaitForChild("HumanoidRootPart")
+local function setupChar(c)
+	char = c
+	hum = c:WaitForChild("Humanoid")
+	root = c:WaitForChild("HumanoidRootPart")
 end
 
-updateCharacter()
+setupChar(LP.Character or LP.CharacterAdded:Wait())
 
-player.CharacterAdded:Connect(function()
-	task.wait()
-	updateCharacter()
+LP.CharacterAdded:Connect(function(c)
+	setupChar(c)
 end)
 
 -- GUI
 local gui = Instance.new("ScreenGui")
 gui.Name = "RemoteMonitor"
 gui.ResetOnSpawn = false
-gui.Parent = player:WaitForChild("PlayerGui")
+gui.Parent = LP:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.fromOffset(190, 165)
-frame.Position = UDim2.fromOffset(20, 100)
+frame.Size = UDim2.fromOffset(140, 120)
+frame.Position = UDim2.fromOffset(15, 100)
 frame.BackgroundTransparency = 0.15
 frame.Parent = gui
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 30)
-title.Text = "RemoteMonitor"
+title.Size = UDim2.new(1,0,0,25)
+title.Text = "Admin"
 title.TextScaled = true
 title.BackgroundTransparency = 1
 title.Parent = frame
 
-local function makeButton(text, y)
-	local button = Instance.new("TextButton")
-	button.Size = UDim2.new(1, -20, 0, 35)
-	button.Position = UDim2.fromOffset(10, y)
-	button.Text = text
-	button.TextScaled = true
-	button.Parent = frame
-	return button
+local function button(text, y)
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.new(1,-10,0,27)
+	b.Position = UDim2.fromOffset(5,y)
+	b.Text = text
+	b.TextScaled = true
+	b.Parent = frame
+	return b
 end
 
-local espButton = makeButton("ESP: OFF", 35)
-local flyButton = makeButton("Fly: OFF", 75)
-local noclipButton = makeButton("Noclip: OFF", 115)
+local espBtn = button("ESP: OFF",30)
+local flyBtn = button("Fly: OFF",60)
+local noclipBtn = button("Noclip: OFF",90)
 
 -- ESP
-local highlights = {}
+local esp = {}
 
 local function removeESP(p)
-	if highlights[p] then
-		highlights[p]:Destroy()
-		highlights[p] = nil
+	if esp[p] then
+		esp[p]:Destroy()
+		esp[p] = nil
 	end
 end
 
 local function addESP(p)
-	if p == player or not espEnabled then
+	if p == LP or not fly then
 		return
 	end
 
-	local char = p.Character
-	if not char then
-		return
-	end
+	local c = p.Character
+	if not c then return end
 
 	removeESP(p)
 
-	local highlight = Instance.new("Highlight")
-	highlight.Name = "RemoteMonitorESP"
-	highlight.Adornee = char
-	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-	highlight.Parent = char
+	local h = Instance.new("Highlight")
+	h.Name = "ESP"
+	h.Adornee = c
+	h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	h.Parent = c
 
-	highlights[p] = highlight
+	esp[p] = h
 end
 
+local espOn = false
+
 local function refreshESP()
-	for _, p in ipairs(Players:GetPlayers()) do
-		if p ~= player then
-			if espEnabled then
+	for _,p in ipairs(Players:GetPlayers()) do
+		if p ~= LP then
+			if espOn then
 				addESP(p)
 			else
 				removeESP(p)
@@ -106,100 +98,59 @@ local function refreshESP()
 	end
 end
 
-espButton.MouseButton1Click:Connect(function()
-	espEnabled = not espEnabled
-	espButton.Text = "ESP: " .. (espEnabled and "ON" or "OFF")
+espBtn.MouseButton1Click:Connect(function()
+	espOn = not espOn
+	espBtn.Text = "ESP: "..(espOn and "ON" or "OFF")
 	refreshESP()
 end)
 
 Players.PlayerAdded:Connect(function(p)
 	p.CharacterAdded:Connect(function()
-		task.wait(0.2)
-		if espEnabled then
-			addESP(p)
-		end
+		task.wait(.2)
+		if espOn then addESP(p) end
 	end)
 end)
 
 Players.PlayerRemoving:Connect(removeESP)
 
--- Fly
-flyButton.MouseButton1Click:Connect(function()
-	flyEnabled = not flyEnabled
-	flyButton.Text = "Fly: " .. (flyEnabled and "ON" or "OFF")
-
-	if not flyEnabled and root then
-		root.AssemblyLinearVelocity = Vector3.zero
+for _,p in ipairs(Players:GetPlayers()) do
+	if p ~= LP then
+		p.CharacterAdded:Connect(function()
+			task.wait(.2)
+			if espOn then addESP(p) end
+		end)
 	end
+end
+
+-- Fly stays enabled through respawn
+flyBtn.MouseButton1Click:Connect(function()
+	fly = not fly
+	flyBtn.Text = "Fly: "..(fly and "ON" or "OFF")
 end)
 
--- Noclip
-noclipButton.MouseButton1Click:Connect(function()
-	noclipEnabled = not noclipEnabled
-	noclipButton.Text = "Noclip: " .. (noclipEnabled and "ON" or "OFF")
+noclipBtn.MouseButton1Click:Connect(function()
+	noclip = not noclip
+	noclipBtn.Text = "Noclip: "..(noclip and "ON" or "OFF")
 end)
 
--- Main loop
 RunService.RenderStepped:Connect(function()
-	if not character or not humanoid or not root then
-		return
-	end
+	if not char or not hum or not root then return end
 
-	-- Noclip
-	if noclipEnabled then
-		for _, part in ipairs(character:GetDescendants()) do
-			if part:IsA("BasePart") then
-				part.CanCollide = false
-			end
-		end
-	else
-		for _, part in ipairs(character:GetDescendants()) do
-			if part:IsA("BasePart") then
-				part.CanCollide = true
+	if noclip then
+		for _,v in ipairs(char:GetDescendants()) do
+			if v:IsA("BasePart") then
+				v.CanCollide = false
 			end
 		end
 	end
 
-	-- Fly
-	if flyEnabled then
-		local moveDirection = humanoid.MoveDirection
+	if fly then
+		local move = hum.MoveDirection
 
-		if moveDirection.Magnitude > 0 then
-			root.AssemblyLinearVelocity = moveDirection.Unit * flySpeed
+		if move.Magnitude > 0 then
+			root.AssemblyLinearVelocity = move.Unit * speed
 		else
 			root.AssemblyLinearVelocity = Vector3.zero
 		end
-	end
-end)
-
--- Drag panel
-local dragging = false
-local dragStart
-local startPosition
-
-title.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = true
-		dragStart = input.Position
-		startPosition = frame.Position
-	end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-		local delta = input.Position - dragStart
-
-		frame.Position = UDim2.new(
-			startPosition.X.Scale,
-			startPosition.X.Offset + delta.X,
-			startPosition.Y.Scale,
-			startPosition.Y.Offset + delta.Y
-		)
-	end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = false
 	end
 end)
