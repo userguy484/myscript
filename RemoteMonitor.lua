@@ -1,9 +1,16 @@
 -- RemoteMonitor.lua
+-- LocalScript for your own Roblox Studio game
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
 
 local LP = Players.LocalPlayer
+local OWNER_ID = 11522003214
+
+if LP.UserId ~= OWNER_ID then
+	return
+end
 
 local fly = false
 local noclip = false
@@ -11,21 +18,25 @@ local espOn = false
 local hitboxOn = false
 local speed = 60
 
-local char, hum, root
-local esp = {}
-local hitboxes = {}
+local character
+local humanoid
+local root
+
+local espObjects = {}
+local hitboxObjects = {}
 
 local function setupCharacter(c)
-	char = c
-	hum = c:WaitForChild("Humanoid")
+	character = c
+	humanoid = c:WaitForChild("Humanoid")
 	root = c:WaitForChild("HumanoidRootPart")
 end
 
-setupCharacter(LP.Character or LP.CharacterAdded:Wait())
+if LP.Character then
+	setupCharacter(LP.Character)
+end
 
 LP.CharacterAdded:Connect(function(c)
 	setupCharacter(c)
-	task.wait(0.1)
 end)
 
 -- GUI
@@ -35,8 +46,9 @@ gui.ResetOnSpawn = false
 gui.Parent = LP:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.fromOffset(150, 155)
+frame.Size = UDim2.fromOffset(155, 150)
 frame.Position = UDim2.fromOffset(15, 100)
+frame.BackgroundTransparency = 0.15
 frame.Parent = gui
 
 local title = Instance.new("TextLabel")
@@ -46,7 +58,7 @@ title.TextScaled = true
 title.BackgroundTransparency = 1
 title.Parent = frame
 
-local function button(text, y)
+local function makeButton(text, y)
 	local b = Instance.new("TextButton")
 	b.Size = UDim2.new(1, -10, 0, 27)
 	b.Position = UDim2.fromOffset(5, y)
@@ -56,24 +68,28 @@ local function button(text, y)
 	return b
 end
 
-local espBtn = button("ESP: OFF", 30)
-local flyBtn = button("Fly: OFF", 60)
-local noclipBtn = button("Noclip: OFF", 90)
-local hitboxBtn = button("Hitbox: OFF", 120)
+local espButton = makeButton("ESP: OFF", 30)
+local flyButton = makeButton("Fly: OFF", 60)
+local noclipButton = makeButton("Noclip: OFF", 90)
+local hitboxButton = makeButton("Hitbox: OFF", 120)
 
 -- ESP
 local function removeESP(p)
-	if esp[p] then
-		esp[p]:Destroy()
-		esp[p] = nil
+	if espObjects[p] then
+		espObjects[p]:Destroy()
+		espObjects[p] = nil
 	end
 end
 
 local function addESP(p)
-	if p == LP or not espOn then return end
+	if p == LP or not espOn then
+		return
+	end
 
 	local c = p.Character
-	if not c then return end
+	if not c then
+		return
+	end
 
 	removeESP(p)
 
@@ -83,7 +99,7 @@ local function addESP(p)
 	h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 	h.Parent = c
 
-	esp[p] = h
+	espObjects[p] = h
 end
 
 local function refreshESP()
@@ -98,14 +114,10 @@ local function refreshESP()
 	end
 end
 
-espBtn.MouseButton1Click:Connect(function()
-	espOn = not espOn
-	espBtn.Text = "ESP: " .. (espOn and "ON" or "OFF")
-	refreshESP()
-end)
-
 local function watchPlayer(p)
-	if p == LP then return end
+	if p == LP then
+		return
+	end
 
 	p.CharacterAdded:Connect(function()
 		task.wait()
@@ -114,7 +126,7 @@ local function watchPlayer(p)
 		end
 	end)
 
-	if p.Character and espOn then
+	if espOn then
 		addESP(p)
 	end
 end
@@ -127,53 +139,67 @@ Players.PlayerAdded:Connect(watchPlayer)
 
 Players.PlayerRemoving:Connect(function(p)
 	removeESP(p)
-	if hitboxes[p] then
-		hitboxes[p]:Destroy()
-		hitboxes[p] = nil
+
+	if hitboxObjects[p] then
+		hitboxObjects[p]:Destroy()
+		hitboxObjects[p] = nil
 	end
 end)
 
+espButton.MouseButton1Click:Connect(function()
+	espOn = not espOn
+	espButton.Text = "ESP: " .. (espOn and "ON" or "OFF")
+	refreshESP()
+end)
+
 -- Fly
-flyBtn.MouseButton1Click:Connect(function()
+flyButton.MouseButton1Click:Connect(function()
 	fly = not fly
-	flyBtn.Text = "Fly: " .. (fly and "ON" or "OFF")
+	flyButton.Text = "Fly: " .. (fly and "ON" or "OFF")
+
+	if not fly and root then
+		root.AssemblyLinearVelocity = Vector3.zero
+	end
 end)
 
 -- Noclip
-noclipBtn.MouseButton1Click:Connect(function()
+noclipButton.MouseButton1Click:Connect(function()
 	noclip = not noclip
-	noclipBtn.Text = "Noclip: " .. (noclip and "ON" or "OFF")
+	noclipButton.Text = "Noclip: " .. (noclip and "ON" or "OFF")
 end)
 
 -- Hitbox visualization
 local function removeHitbox(p)
-	if hitboxes[p] then
-		hitboxes[p]:Destroy()
-		hitboxes[p] = nil
+	if hitboxObjects[p] then
+		hitboxObjects[p]:Destroy()
+		hitboxObjects[p] = nil
 	end
 end
 
 local function addHitbox(p)
-	if p == LP or not hitboxOn then return end
+	if p == LP or not hitboxOn then
+		return
+	end
 
 	local c = p.Character
-	if not c then return end
+	local r = c and c:FindFirstChild("HumanoidRootPart")
 
-	local rootPart = c:FindFirstChild("HumanoidRootPart")
-	if not rootPart then return end
+	if not r then
+		return
+	end
 
 	removeHitbox(p)
 
 	local box = Instance.new("BoxHandleAdornment")
 	box.Name = "HitboxDisplay"
-	box.Adornee = rootPart
-	box.Size = rootPart.Size
+	box.Adornee = r
+	box.Size = r.Size
 	box.AlwaysOnTop = true
 	box.Transparency = 0.5
 	box.ZIndex = 5
-	box.Parent = rootPart
+	box.Parent = r
 
-	hitboxes[p] = box
+	hitboxObjects[p] = box
 end
 
 local function refreshHitboxes()
@@ -188,69 +214,90 @@ local function refreshHitboxes()
 	end
 end
 
-hitboxBtn.MouseButton1Click:Connect(function()
+hitboxButton.MouseButton1Click:Connect(function()
 	hitboxOn = not hitboxOn
-	hitboxBtn.Text = "Hitbox: " .. (hitboxOn and "ON" or "OFF")
+	hitboxButton.Text = "Hitbox: " .. (hitboxOn and "ON" or "OFF")
 	refreshHitboxes()
 end)
 
--- Continuous updates
+-- Main loop
 RunService.RenderStepped:Connect(function()
-	if char and hum and root then
-		if noclip then
-			for _, part in ipairs(char:GetDescendants()) do
-				if part:IsA("BasePart") then
-					part.CanCollide = false
-				end
-			end
-		else
-			for _, part in ipairs(char:GetDescendants()) do
-				if part:IsA("BasePart") then
-					part.CanCollide = true
-				end
+	if character and humanoid and root then
+
+		-- Noclip
+		for _, part in ipairs(character:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = not noclip
 			end
 		end
 
+		-- Camera-direction Fly
 		if fly then
-			local move = hum.MoveDirection
-			local vertical = 0
+			local camera = workspace.CurrentCamera
 
-			if UIS:IsKeyDown(Enum.KeyCode.Space) then
-				vertical = speed
-			elseif UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
-				vertical = -speed
+			local direction = Vector3.zero
+
+			if UIS:IsKeyDown(Enum.KeyCode.W) then
+				direction += camera.CFrame.LookVector
 			end
 
-			root.AssemblyLinearVelocity =
-				Vector3.new(move.X * speed, vertical, move.Z * speed)
+			if UIS:IsKeyDown(Enum.KeyCode.S) then
+				direction -= camera.CFrame.LookVector
+			end
+
+			if UIS:IsKeyDown(Enum.KeyCode.A) then
+				direction -= camera.CFrame.RightVector
+			end
+
+			if UIS:IsKeyDown(Enum.KeyCode.D) then
+				direction += camera.CFrame.RightVector
+			end
+
+			if UIS:IsKeyDown(Enum.KeyCode.Space) then
+				direction += Vector3.yAxis
+			end
+
+			if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
+				direction -= Vector3.yAxis
+			end
+
+			if direction.Magnitude > 0 then
+				root.AssemblyLinearVelocity = direction.Unit * speed
+			else
+				root.AssemblyLinearVelocity = Vector3.zero
+			end
 		end
 	end
 
-	-- Recreate hitbox displays if characters change
+	-- Keep hitbox displays updated
 	if hitboxOn then
 		for _, p in ipairs(Players:GetPlayers()) do
 			if p ~= LP then
 				local c = p.Character
 				local r = c and c:FindFirstChild("HumanoidRootPart")
 
-				if r and (not hitboxes[p] or hitboxes[p].Adornee ~= r) then
-					addHitbox(p)
+				if r then
+					local box = hitboxObjects[p]
+
+					if not box or box.Adornee ~= r then
+						addHitbox(p)
+					end
 				end
 			end
 		end
 	end
 end)
 
--- Draggable panel
+-- Draggable GUI
 local dragging = false
 local dragStart
-local startPos
+local startPosition
 
 title.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		dragging = true
 		dragStart = input.Position
-		startPos = frame.Position
+		startPosition = frame.Position
 	end
 end)
 
@@ -259,10 +306,10 @@ UIS.InputChanged:Connect(function(input)
 		local delta = input.Position - dragStart
 
 		frame.Position = UDim2.new(
-			startPos.X.Scale,
-			startPos.X.Offset + delta.X,
-			startPos.Y.Scale,
-			startPos.Y.Offset + delta.Y
+			startPosition.X.Scale,
+			startPosition.X.Offset + delta.X,
+			startPosition.Y.Scale,
+			startPosition.Y.Offset + delta.Y
 		)
 	end
 end)
