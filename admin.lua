@@ -20,13 +20,13 @@ UpdateCharacter()
 local NoclipEnabled = false
 local FlyEnabled = false
 local ESPEnabled = false
-local SitEnabled = false
+local OrbitEnabled = false
 
 local SelectedPlayer = nil
 
 local NoclipConnection
 local FlyConnection
-local SitThread
+local OrbitThread
 
 local OriginalCollision = {}
 local ESPObjects = {}
@@ -39,6 +39,8 @@ local Gui = Instance.new("ScreenGui")
 Gui.Name = "AdminGui"
 Gui.ResetOnSpawn = false
 Gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+Instance.new("UICorner",Gui).CornerRadius = UDim.new(0,14)
 
 local OpenButton = Instance.new("TextButton")
 OpenButton.Size = UDim2.new(0,140,0,40)
@@ -165,7 +167,7 @@ SelectedLabel.TextSize = 13
 SelectedLabel.TextXAlignment = Enum.TextXAlignment.Left
 SelectedLabel.Parent = Main
 
-local SitButton = CreateButton("Sit to Player: OFF",575)
+local OrbitButton = CreateButton("Orbit Player: OFF",575)
 
 --------------------------------------------------
 -- REFRESH PLAYER LIST
@@ -229,9 +231,9 @@ Players.PlayerRemoving:Connect(function(player)
 		SelectedPlayer = nil
 		SelectedLabel.Text = "Selected: None"
 
-		if SitEnabled then
-			SitEnabled = false
-			SitButton.Text = "Sit to Player: OFF"
+		if OrbitEnabled then
+			OrbitEnabled = false
+			OrbitButton.Text = "Orbit Player: OFF"
 		end
 	end
 
@@ -475,16 +477,14 @@ ResetViewButton.MouseButton1Click:Connect(function()
 end)
 
 --------------------------------------------------
--- SIT TO PLAYER
--- TELEPORT EVERY SECOND
+-- ORBIT PLAYER
 --------------------------------------------------
 
-local function TeleportToSelected()
+local function OrbitSelected()
 
-	if not SitEnabled then return end
+	if not OrbitEnabled then return end
 	if not SelectedPlayer then return end
 	if not Root or not Root.Parent then return end
-	if not Humanoid or not Humanoid.Parent then return end
 
 	local targetCharacter = SelectedPlayer.Character
 	if not targetCharacter then return end
@@ -492,62 +492,62 @@ local function TeleportToSelected()
 	local targetRoot = targetCharacter:FindFirstChild("HumanoidRootPart")
 	if not targetRoot then return end
 
-	Root.CFrame = targetRoot.CFrame * CFrame.new(0,0,-2.5)
+	local time = os.clock()
+
+	local radius = 6
+	local height = 2
+	local speed = 3
+
+	local x = math.cos(time * speed) * radius
+	local z = math.sin(time * speed) * radius
+
+	Root.CFrame = CFrame.new(
+		targetRoot.Position + Vector3.new(x,height,z),
+		targetRoot.Position
+	)
 
 	Root.AssemblyLinearVelocity = Vector3.zero
 	Root.AssemblyAngularVelocity = Vector3.zero
-
-	Humanoid.Sit = true
 end
 
-local function StopSit()
-
-	SitEnabled = false
-
-	SitButton.Text = "Sit to Player: OFF"
-end
-
-local function StartSit()
+OrbitButton.MouseButton1Click:Connect(function()
 
 	if not SelectedPlayer then
 
-		SitButton.Text = "Select A Player!"
+		OrbitButton.Text = "Select A Player!"
 
 		task.delay(1,function()
-			if not SitEnabled then
-				SitButton.Text = "Sit to Player: OFF"
+
+			if not OrbitEnabled then
+				OrbitButton.Text = "Orbit Player: OFF"
 			end
+
 		end)
 
 		return
 	end
 
-	SitEnabled = true
-	SitButton.Text = "Sit to Player: ON"
+	OrbitEnabled = not OrbitEnabled
 
-	-- Immediate teleport
-	TeleportToSelected()
+	if OrbitEnabled then
 
-	-- Teleport again every second
-	SitThread = task.spawn(function()
+		OrbitButton.Text = "Orbit Player: ON"
 
-		while SitEnabled do
+		OrbitThread = task.spawn(function()
 
-			task.wait(1)
+			while OrbitEnabled do
 
-			if SitEnabled then
-				TeleportToSelected()
+				OrbitSelected()
+
+				task.wait()
+
 			end
-		end
-	end)
-end
+		end)
 
-SitButton.MouseButton1Click:Connect(function()
-
-	if SitEnabled then
-		StopSit()
 	else
-		StartSit()
+
+		OrbitButton.Text = "Orbit Player: OFF"
+
 	end
 end)
 
@@ -611,8 +611,8 @@ end)
 
 LocalPlayer.CharacterAdded:Connect(function()
 
-	SitEnabled = false
-	SitButton.Text = "Sit to Player: OFF"
+	OrbitEnabled = false
+	OrbitButton.Text = "Orbit Player: OFF"
 
 	task.wait(0.5)
 
