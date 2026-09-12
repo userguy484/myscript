@@ -1,1 +1,8 @@
+print("EXECUTOR TEST WORKED you get hack!")
 
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+if player then
+    print("Hello, " .. player.Name)
+end
