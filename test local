@@ -1,0 +1,10 @@
+print("CUSTOM EXECUTOR TEST: WORKING")
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+if player then
+    print("Executor can access LocalPlayer:", player.Name)
+else
+    warn("LocalPlayer was not available")
+end
