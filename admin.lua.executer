@@ -1,264 +1,46 @@
--- Admin GUI - LocalScript
--- For your own Roblox Studio game
+-- Local-half / client-side test script
+-- Put in your game's equivalent of StarterCharacterScripts
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
-local camera = workspace.CurrentCamera
+local character = script.Parent
+local root = character:WaitForChild("HumanoidRootPart")
 
-local flying = false
-local noclip = false
-local espEnabled = false
-local trackerEnabled = false
-local boneEnabled = false
-local aimEnabled = false
-
-local flySpeed = 60
-local espObjects = {}
-local bones = {}
-local trackers = {}
-
--- GUI
 local gui = Instance.new("ScreenGui")
-gui.Name = "AdminPanel"
+gui.Name = "PhysicsTestGui"
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.fromOffset(190, 330)
-frame.Position = UDim2.new(0, 20, 0.5, -165)
-frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-frame.BorderSizePixel = 0
+frame.Size = UDim2.fromOffset(190, 100)
+frame.Position = UDim2.fromOffset(30, 150)
+frame.Active = true
+frame.Draggable = true
 frame.Parent = gui
 
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 35)
-title.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-title.Text = "Admin"
-title.TextColor3 = Color3.new(1,1,1)
-title.Font = Enum.Font.SourceSansBold
-title.TextSize = 20
-title.Parent = frame
+local button = Instance.new("TextButton")
+button.Size = UDim2.fromOffset(160, 45)
+button.Position = UDim2.fromOffset(15, 35)
+button.Text = "Fling Test: OFF"
+button.Parent = frame
 
--- Dragging
-local dragging = false
-local dragStart
-local startPos
+local enabled = false
 
-title.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = frame.Position
-
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
+button.MouseButton1Click:Connect(function()
+    enabled = not enabled
+    button.Text = enabled and "Fling Test: ON" or "Fling Test: OFF"
 end)
 
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local delta = input.Position - dragStart
-        frame.Position = UDim2.new(
-            startPos.X.Scale,
-            startPos.X.Offset + delta.X,
-            startPos.Y.Scale,
-            startPos.Y.Offset + delta.Y
-        )
-    end
-end)
-
-local function button(text, y, callback)
-    local b = Instance.new("TextButton")
-    b.Size = UDim2.new(1, -20, 0, 40)
-    b.Position = UDim2.fromOffset(10, y)
-    b.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    b.TextColor3 = Color3.new(1,1,1)
-    b.Text = text
-    b.TextSize = 17
-    b.Font = Enum.Font.SourceSans
-    b.Parent = frame
-
-    b.MouseButton1Click:Connect(callback)
-
-    return b
-end
-
-local flyButton
-local noclipButton
-local espButton
-local trackerButton
-local boneButton
-local aimButton
-
-flyButton = button("Fly: OFF", 45, function()
-    flying = not flying
-    flyButton.Text = "Fly: " .. (flying and "ON" or "OFF")
-end)
-
-noclipButton = button("Noclip: OFF", 90, function()
-    noclip = not noclip
-    noclipButton.Text = "Noclip: " .. (noclip and "ON" or "OFF")
-end)
-
-espButton = button("ESP: OFF", 135, function()
-    espEnabled = not espEnabled
-    espButton.Text = "ESP: " .. (espEnabled and "ON" or "OFF")
-end)
-
-trackerButton = button("Tracker: OFF", 180, function()
-    trackerEnabled = not trackerEnabled
-    trackerButton.Text = "Tracker: " .. (trackerEnabled and "ON" or "OFF")
-end)
-
-boneButton = button("Bone ESP: OFF", 225, function()
-    boneEnabled = not boneEnabled
-    boneButton.Text = "Bone ESP: " .. (boneEnabled and "ON" or "OFF")
-end)
-
-aimButton = button("Aim Assist: OFF", 270, function()
-    aimEnabled = not aimEnabled
-    aimButton.Text = "Aim Assist: " .. (aimEnabled and "ON" or "OFF")
-end)
-
--- Find nearest player
-local function nearestPlayer()
-    local closest
-    local distance = math.huge
-
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= player and p.Character then
-            local head = p.Character:FindFirstChild("Head")
-
-            if head then
-                local pos, visible = camera:WorldToViewportPoint(head.Position)
-
-                if visible then
-                    local mousePos = UserInputService:GetMouseLocation()
-                    local d = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
-
-                    if d < distance then
-                        distance = d
-                        closest = head
-                    end
-                end
-            end
-        end
-    end
-
-    return closest
-end
-
--- ESP
-local function updateESP()
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= player and p.Character then
-            local highlight = espObjects[p]
-
-            if espEnabled and not highlight then
-                highlight = Instance.new("Highlight")
-                highlight.Name = "AdminESP"
-                highlight.FillTransparency = 0.6
-                highlight.OutlineTransparency = 0
-                highlight.Adornee = p.Character
-                highlight.Parent = p.Character
-                espObjects[p] = highlight
-            elseif not espEnabled and highlight then
-                highlight:Destroy()
-                espObjects[p] = nil
-            elseif highlight then
-                highlight.Adornee = p.Character
-            end
-        end
-    end
-end
-
--- Noclip
-local function doNoclip()
-    if not noclip or not player.Character then
-        return
-    end
-
-    for _, part in ipairs(player.Character:GetDescendants()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = false
-        end
-    end
-end
-
--- Fly
-local function doFly()
-    local character = player.Character
-    local root = character and character:FindFirstChild("HumanoidRootPart")
-
-    if not flying or not root then
-        return
-    end
-
-    local direction = Vector3.zero
-
-    if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-        direction += camera.CFrame.LookVector
-    end
-
-    if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-        direction -= camera.CFrame.LookVector
-    end
-
-    if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-        direction -= camera.CFrame.RightVector
-    end
-
-    if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-        direction += camera.CFrame.RightVector
-    end
-
-    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-        direction += Vector3.yAxis
-    end
-
-    if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-        direction -= Vector3.yAxis
-    end
-
-    if direction.Magnitude > 0 then
-        root.AssemblyLinearVelocity = direction.Unit * flySpeed
-    else
-        root.AssemblyLinearVelocity = Vector3.zero
-    end
-end
-
--- Aim assist
-local function doAim()
-    if not aimEnabled then
-        return
-    end
-
-    local target = nearestPlayer()
-
-    if target then
-        camera.CFrame = CFrame.lookAt(
-            camera.CFrame.Position,
-            target.Position
-        )
-    end
-end
-
-RunService.RenderStepped:Connect(function()
-    doNoclip()
-    doFly()
-    updateESP()
-    doAim()
-end)
-
-Players.PlayerRemoving:Connect(function(p)
-    if espObjects[p] then
-        espObjects[p]:Destroy()
-        espObjects[p] = nil
+RunService.Heartbeat:Connect(function()
+    if enabled and root and root.Parent then
+        root.AssemblyLinearVelocity =
+            Vector3.new(
+                math.random(-100, 100),
+                150,
+                math.random(-100, 100)
+            )
     end
 end)
