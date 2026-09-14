@@ -1,70 +1,76 @@
---==================================================
--- LOCAL-HALF COMPLETE ADMIN / TEST GUI
---==================================================
+-- Local-Half Admin / Test Panel
+-- Single loadstring-compatible script
+-- For your own Local-Half Roblox-style game
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
-
 if not LocalPlayer then
-    warn("LocalPlayer is nil")
     return
 end
 
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+if not PlayerGui then
+    return
+end
 
 --==================================================
 -- SETTINGS
 --==================================================
 
-local BoneESP = false
-local HealthESP = false
-local Noclip = false
-local Flying = false
+local BoneESPEnabled = false
+local HealthESPEnabled = false
+local FlyEnabled = false
+local NoclipEnabled = false
 local Spectating = false
 
 local SelectedPlayer = nil
-
-local FlySpeed = 60
-local FlingPower = 250
+local FlingPower = 2500
 
 local BoneObjects = {}
-local Connections = {}
+local HealthObjects = {}
+local CollisionCache = {}
 
-local FlyUp = false
-local FlyDown = false
+local FlySpeed = 70
 
 --==================================================
--- CHARACTER HELPERS
+-- SAFE HELPERS
 --==================================================
 
-local function GetCharacter(player)
+local function safeDestroy(object)
+    if object then
+        pcall(function()
+            object:Destroy()
+        end)
+    end
+end
+
+local function getCharacter(player)
     if not player then
         return nil
     end
 
     local character = player.Character
-
-    if character and character.Parent then
-        return character
+    if not character then
+        return nil
     end
 
-    return nil
+    return character
 end
 
-local function GetRoot(character)
+local function getRoot(player)
+    local character = getCharacter(player)
     if not character then
         return nil
     end
 
     return character:FindFirstChild("HumanoidRootPart")
-        or character:FindFirstChild("Torso")
-        or character:FindFirstChild("UpperTorso")
 end
 
-local function GetHumanoid(character)
+local function getHumanoid(player)
+    local character = getCharacter(player)
     if not character then
         return nil
     end
@@ -73,80 +79,74 @@ local function GetHumanoid(character)
 end
 
 --==================================================
--- REMOVE OLD GUI
---==================================================
-
-local OldGui = PlayerGui:FindFirstChild("LocalHalfGUI")
-
-if OldGui then
-    OldGui:Destroy()
-end
-
---==================================================
 -- GUI
 --==================================================
 
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "LocalHalfGUI"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = PlayerGui
+local oldGui = PlayerGui:FindFirstChild("LocalHalfGUI")
+if oldGui then
+    safeDestroy(oldGui)
+end
+
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "LocalHalfGUI"
+Gui.ResetOnSpawn = false
+Gui.Parent = PlayerGui
 
 local Main = Instance.new("Frame")
 Main.Name = "Main"
-Main.Size = UDim2.fromOffset(290, 520)
-Main.Position = UDim2.fromOffset(30, 100)
-Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Main.Size = UDim2.new(0, 320, 0, 610)
+Main.Position = UDim2.new(0, 30, 0.5, -305)
+Main.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 Main.BorderSizePixel = 0
-Main.Active = true
-Main.Parent = ScreenGui
+Main.Parent = Gui
+
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0, 10)
+Corner.Parent = Main
 
 --==================================================
 -- DRAGGING
 --==================================================
 
-local Dragging = false
-local DragStart
-local StartPosition
-
-local function UpdateDrag(input)
-    local Delta = input.Position - DragStart
-
-    Main.Position = UDim2.new(
-        StartPosition.X.Scale,
-        StartPosition.X.Offset + Delta.X,
-        StartPosition.Y.Scale,
-        StartPosition.Y.Offset + Delta.Y
-    )
-end
+local dragging = false
+local dragStart = nil
+local startPosition = nil
 
 Main.InputBegan:Connect(function(input)
-
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
-
-        Dragging = true
-        DragStart = input.Position
-        StartPosition = Main.Position
+        dragging = true
+        dragStart = input.Position
+        startPosition = Main.Position
 
         input.Changed:Connect(function()
-
             if input.UserInputState == Enum.UserInputState.End then
-                Dragging = false
+                dragging = false
             end
-
         end)
     end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-
-    if Dragging then
-
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
-            UpdateDrag(input)
-        end
-
+    if not dragging then
+        return
     end
 
+    if input.UserInputType ~= Enum.UserInputType.MouseMovement then
+        return
+    end
+
+    if not dragStart or not startPosition then
+        return
+    end
+
+    local delta = input.Position - dragStart
+
+    Main.Position = UDim2.new(
+        startPosition.X.Scale,
+        startPosition.X.Offset + delta.X,
+        startPosition.Y.Scale,
+        startPosition.Y.Offset + delta.Y
+    )
 end)
 
 --==================================================
@@ -154,964 +154,848 @@ end)
 --==================================================
 
 local Title = Instance.new("TextLabel")
-Title.Name = "Title"
-Title.Size = UDim2.new(1, 0, 0, 40)
-Title.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
-Title.BorderSizePixel = 0
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Size = UDim2.new(1, 0, 0, 42)
+Title.BackgroundTransparency = 1
 Title.Text = "LOCAL-HALF"
-Title.TextSize = 18
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 22
+Title.Font = Enum.Font.SourceSansBold
 Title.Parent = Main
+
+local SelectedLabel = Instance.new("TextLabel")
+SelectedLabel.Position = UDim2.new(0, 10, 0, 42)
+SelectedLabel.Size = UDim2.new(1, -20, 0, 25)
+SelectedLabel.BackgroundTransparency = 1
+SelectedLabel.Text = "Selected: None"
+SelectedLabel.TextColor3 = Color3.fromRGB(190, 190, 190)
+SelectedLabel.TextSize = 15
+SelectedLabel.Font = Enum.Font.SourceSans
+SelectedLabel.TextXAlignment = Enum.TextXAlignment.Left
+SelectedLabel.Parent = Main
 
 --==================================================
 -- BUTTON CREATOR
 --==================================================
 
-local function MakeButton(text, y)
+local function createButton(name, text, y)
+    local Button = Instance.new("TextButton")
+    Button.Name = name
+    Button.Position = UDim2.new(0, 10, 0, y)
+    Button.Size = UDim2.new(0, 145, 0, 32)
+    Button.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    Button.BorderSizePixel = 0
+    Button.Text = text
+    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Button.TextSize = 14
+    Button.Font = Enum.Font.SourceSansBold
+    Button.Parent = Main
 
-    local button = Instance.new("TextButton")
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 6)
+    c.Parent = Button
 
-    button.Size = UDim2.new(1, -20, 0, 32)
-    button.Position = UDim2.fromOffset(10, y)
-
-    button.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    button.BorderSizePixel = 0
-
-    button.TextColor3 = Color3.fromRGB(255, 255, 255)
-    button.Text = text
-    button.TextSize = 13
-
-    button.Parent = Main
-
-    return button
+    return Button
 end
 
-local BoneButton = MakeButton("Bone ESP: OFF", 50)
-local HealthButton = MakeButton("Health ESP: OFF", 87)
-local FlyButton = MakeButton("Fly: OFF", 124)
-local NoclipButton = MakeButton("Noclip: OFF", 161)
+local BoneButton = createButton("BoneButton", "Bone ESP: OFF", 72)
+local HealthButton = createButton("HealthButton", "Health ESP: OFF", 110)
+local FlyButton = createButton("FlyButton", "Fly: OFF", 148)
+local NoclipButton = createButton("NoclipButton", "Noclip: OFF", 186)
+local ViewButton = createButton("ViewButton", "View Player", 224)
+local TeleportButton = createButton("TeleportButton", "Teleport", 262)
+local FlingButton = createButton("FlingButton", "Fling Selected", 300)
+local SettingsButton = createButton("SettingsButton", "Display Settings", 338)
 
-local ViewButton = MakeButton("View Selected", 198)
-local TeleportButton = MakeButton("Teleport To Selected", 235)
-local FlingButton = MakeButton("Fling Selected", 272)
+--==================================================
+-- SETTINGS PANEL
+--==================================================
+
+local SettingsFrame = Instance.new("Frame")
+SettingsFrame.Name = "DisplaySettings"
+SettingsFrame.Position = UDim2.new(0, 10, 0, 378)
+SettingsFrame.Size = UDim2.new(0, 300, 0, 80)
+SettingsFrame.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
+SettingsFrame.BorderSizePixel = 0
+SettingsFrame.Visible = false
+SettingsFrame.Parent = Main
+
+local SettingsCorner = Instance.new("UICorner")
+SettingsCorner.CornerRadius = UDim.new(0, 6)
+SettingsCorner.Parent = SettingsFrame
+
+local SettingsText = Instance.new("TextLabel")
+SettingsText.Position = UDim2.new(0, 8, 0, 4)
+SettingsText.Size = UDim2.new(1, -16, 0, 20)
+SettingsText.BackgroundTransparency = 1
+SettingsText.Text = "DISPLAY SETTINGS"
+SettingsText.TextColor3 = Color3.fromRGB(255, 255, 255)
+SettingsText.TextSize = 14
+SettingsText.Font = Enum.Font.SourceSansBold
+SettingsText.TextXAlignment = Enum.TextXAlignment.Left
+SettingsText.Parent = SettingsFrame
+
+local BoneSetting = Instance.new("TextLabel")
+BoneSetting.Position = UDim2.new(0, 8, 0, 28)
+BoneSetting.Size = UDim2.new(0.5, -8, 0, 20)
+BoneSetting.BackgroundTransparency = 1
+BoneSetting.Text = "Bones"
+BoneSetting.TextColor3 = Color3.fromRGB(220, 220, 220)
+BoneSetting.TextSize = 13
+BoneSetting.TextXAlignment = Enum.TextXAlignment.Left
+BoneSetting.Parent = SettingsFrame
+
+local HealthSetting = Instance.new("TextLabel")
+HealthSetting.Position = UDim2.new(0.5, 0, 0, 28)
+HealthSetting.Size = UDim2.new(0.5, -8, 0, 20)
+HealthSetting.BackgroundTransparency = 1
+HealthSetting.Text = "Health"
+HealthSetting.TextColor3 = Color3.fromRGB(220, 220, 220)
+HealthSetting.TextSize = 13
+HealthSetting.TextXAlignment = Enum.TextXAlignment.Left
+HealthSetting.Parent = SettingsFrame
+
+local PowerBox = Instance.new("TextBox")
+PowerBox.Position = UDim2.new(0, 8, 0, 52)
+PowerBox.Size = UDim2.new(1, -16, 0, 22)
+PowerBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+PowerBox.BorderSizePixel = 0
+PowerBox.Text = tostring(FlingPower)
+PowerBox.PlaceholderText = "Fling Power"
+PowerBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+PowerBox.TextSize = 13
+PowerBox.ClearTextOnFocus = false
+PowerBox.Parent = SettingsFrame
+
+local PowerCorner = Instance.new("UICorner")
+PowerCorner.CornerRadius = UDim.new(0, 4)
+PowerCorner.Parent = PowerBox
+
+SettingsButton.MouseButton1Click:Connect(function()
+    SettingsFrame.Visible = not SettingsFrame.Visible
+end)
+
+PowerBox.FocusLost:Connect(function()
+    local number = tonumber(PowerBox.Text)
+
+    if number then
+        FlingPower = math.clamp(number, 100, 10000)
+        PowerBox.Text = tostring(FlingPower)
+    else
+        PowerBox.Text = tostring(FlingPower)
+    end
+end)
 
 --==================================================
 -- PLAYER LIST
 --==================================================
 
+local PlayerTitle = Instance.new("TextLabel")
+PlayerTitle.Position = UDim2.new(0, 165, 0, 72)
+PlayerTitle.Size = UDim2.new(0, 145, 0, 25)
+PlayerTitle.BackgroundTransparency = 1
+PlayerTitle.Text = "PLAYERS"
+PlayerTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+PlayerTitle.TextSize = 15
+PlayerTitle.Font = Enum.Font.SourceSansBold
+PlayerTitle.Parent = Main
+
 local PlayerList = Instance.new("ScrollingFrame")
-
 PlayerList.Name = "PlayerList"
-
-PlayerList.Size = UDim2.new(1, -20, 0, 210)
-PlayerList.Position = UDim2.fromOffset(10, 312)
-
-PlayerList.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+PlayerList.Position = UDim2.new(0, 165, 0, 100)
+PlayerList.Size = UDim2.new(0, 145, 0, 350)
+PlayerList.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
 PlayerList.BorderSizePixel = 0
-
-PlayerList.ScrollBarThickness = 6
-PlayerList.CanvasSize = UDim2.fromOffset(0, 0)
-
+PlayerList.ScrollBarThickness = 5
+PlayerList.CanvasSize = UDim2.new(0, 0, 0, 0)
 PlayerList.Parent = Main
 
---==================================================
--- SELECT PLAYER
---==================================================
+local ListLayout = Instance.new("UIListLayout")
+ListLayout.Padding = UDim.new(0, 4)
+ListLayout.Parent = PlayerList
 
-local function SetSelectedPlayer(player)
+local function selectPlayer(player)
+    if not player or player == LocalPlayer then
+        return
+    end
 
     SelectedPlayer = player
-
-    if player then
-        Title.Text = "TARGET: " .. player.Name
-    else
-        Title.Text = "LOCAL-HALF"
-    end
-
+    SelectedLabel.Text = "Selected: " .. tostring(player.Name)
 end
 
---==================================================
--- PLAYER LIST REFRESH
---==================================================
-
-local function RefreshPlayerList()
-
-    for _, object in ipairs(PlayerList:GetChildren()) do
-
-        if object:IsA("TextButton") then
-            object:Destroy()
+local function refreshPlayerList()
+    for _, child in ipairs(PlayerList:GetChildren()) do
+        if child:IsA("TextButton") then
+            safeDestroy(child)
         end
-
     end
 
-    local y = 5
+    local allPlayers = Players:GetPlayers()
 
-    for _, target in ipairs(Players:GetPlayers()) do
+    for _, player in ipairs(allPlayers) do
+        if player ~= LocalPlayer then
+            local Button = Instance.new("TextButton")
+            Button.Size = UDim2.new(1, -10, 0, 30)
+            Button.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+            Button.BorderSizePixel = 0
+            Button.Text = tostring(player.Name)
+            Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+            Button.TextSize = 13
+            Button.Font = Enum.Font.SourceSans
+            Button.Parent = PlayerList
 
-        if target ~= LocalPlayer then
+            local c = Instance.new("UICorner")
+            c.CornerRadius = UDim.new(0, 4)
+            c.Parent = Button
 
-            local button = Instance.new("TextButton")
-
-            button.Size = UDim2.new(1, -10, 0, 30)
-            button.Position = UDim2.fromOffset(5, y)
-
-            button.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-            button.BorderSizePixel = 0
-
-            button.TextColor3 = Color3.fromRGB(255, 255, 255)
-
-            button.Text = target.Name
-            button.TextSize = 13
-
-            button.Parent = PlayerList
-
-            button.MouseButton1Click:Connect(function()
-
-                SetSelectedPlayer(target)
-
+            Button.MouseButton1Click:Connect(function()
+                selectPlayer(player)
             end)
-
-            y = y + 35
-
         end
-
     end
 
-    PlayerList.CanvasSize = UDim2.fromOffset(0, y)
-
+    task.defer(function()
+        pcall(function()
+            PlayerList.CanvasSize = UDim2.new(
+                0,
+                0,
+                0,
+                ListLayout.AbsoluteContentSize.Y + 10
+            )
+        end)
+    end)
 end
 
-RefreshPlayerList()
+Players.PlayerAdded:Connect(refreshPlayerList)
+
+Players.PlayerRemoving:Connect(function(player)
+    if SelectedPlayer == player then
+        SelectedPlayer = nil
+        SelectedLabel.Text = "Selected: None"
+
+        if Spectating then
+            Spectating = false
+
+            local camera = workspace.CurrentCamera
+            local humanoid = getHumanoid(LocalPlayer)
+
+            if camera and humanoid then
+                camera.CameraSubject = humanoid
+            end
+
+            ViewButton.Text = "View Player"
+        end
+    end
+
+    refreshPlayerList()
+end)
+
+refreshPlayerList()
 
 --==================================================
--- BONE MAP
+-- BONE ESP
 --==================================================
 
 local BonePairs = {
-
-    -- R6
-
-    {"Head", "Torso"},
-
-    {"Torso", "Left Arm"},
-    {"Torso", "Right Arm"},
-
-    {"Torso", "Left Leg"},
-    {"Torso", "Right Leg"},
-
-    -- R15
-
     {"Head", "UpperTorso"},
     {"UpperTorso", "LowerTorso"},
-
     {"UpperTorso", "LeftUpperArm"},
     {"LeftUpperArm", "LeftLowerArm"},
     {"LeftLowerArm", "LeftHand"},
-
     {"UpperTorso", "RightUpperArm"},
     {"RightUpperArm", "RightLowerArm"},
     {"RightLowerArm", "RightHand"},
-
     {"LowerTorso", "LeftUpperLeg"},
     {"LeftUpperLeg", "LeftLowerLeg"},
     {"LeftLowerLeg", "LeftFoot"},
-
     {"LowerTorso", "RightUpperLeg"},
     {"RightUpperLeg", "RightLowerLeg"},
     {"RightLowerLeg", "RightFoot"}
 }
 
---==================================================
--- ATTACHMENT
---==================================================
+local R6Pairs = {
+    {"Head", "Torso"},
+    {"Torso", "Left Arm"},
+    {"Torso", "Right Arm"},
+    {"Torso", "Left Leg"},
+    {"Torso", "Right Leg"}
+}
 
-local function GetAttachment(part, name)
+local function removeBoneESP(player)
+    local data = BoneObjects[player]
 
-    if not part then
-        return nil
-    end
-
-    local attachment = part:FindFirstChild(name)
-
-    if attachment then
-        return attachment
-    end
-
-    local newAttachment = Instance.new("Attachment")
-
-    newAttachment.Name = name
-    newAttachment.Parent = part
-
-    return newAttachment
-
-end
-
---==================================================
--- REMOVE BONE ESP
---==================================================
-
-local function RemoveBoneESP(target)
-
-    local objects = BoneObjects[target]
-
-    if not objects then
+    if not data then
         return
     end
 
-    for _, object in ipairs(objects) do
-
-        if object and object.Parent then
-            object:Destroy()
-        end
-
+    for _, object in ipairs(data) do
+        safeDestroy(object)
     end
 
-    BoneObjects[target] = nil
-
+    BoneObjects[player] = nil
 end
 
---==================================================
--- CREATE BONE ESP
---==================================================
+local function createBoneESP(player)
+    if not BoneESPEnabled then
+        return
+    end
 
-local function CreateBoneESP(target)
+    if not player or player == LocalPlayer then
+        return
+    end
 
-    local character = GetCharacter(target)
+    local character = getCharacter(player)
 
     if not character then
         return
     end
 
-    RemoveBoneESP(target)
+    removeBoneESP(player)
 
-    BoneObjects[target] = {}
+    local objects = {}
 
-    for _, pair in ipairs(BonePairs) do
+    local pairsToUse = BonePairs
 
-        local partA = character:FindFirstChild(pair[1])
-        local partB = character:FindFirstChild(pair[2])
+    if character:FindFirstChild("Torso") then
+        pairsToUse = R6Pairs
+    end
 
-        if partA and partB then
+    for _, pair in ipairs(pairsToUse) do
+        local part0 = character:FindFirstChild(pair[1])
+        local part1 = character:FindFirstChild(pair[2])
 
-            local attachmentA =
-                GetAttachment(partA, "LocalHalf_A")
+        if part0 and part1 then
+            local a0 = Instance.new("Attachment")
+            a0.Name = "LH_BoneA"
+            a0.Parent = part0
 
-            local attachmentB =
-                GetAttachment(partB, "LocalHalf_B")
+            local a1 = Instance.new("Attachment")
+            a1.Name = "LH_BoneB"
+            a1.Parent = part1
 
-            if attachmentA and attachmentB then
+            local beam = Instance.new("Beam")
+            beam.Name = "LH_Bone"
+            beam.Attachment0 = a0
+            beam.Attachment1 = a1
+            beam.Width0 = 0.08
+            beam.Width1 = 0.08
+            beam.FaceCamera = true
+            beam.Parent = part0
 
-                local beam = Instance.new("Beam")
+            table.insert(objects, beam)
+            table.insert(objects, a0)
+            table.insert(objects, a1)
+        end
+    end
 
-                beam.Name = "LocalHalfBone"
+    BoneObjects[player] = objects
+end
 
-                beam.Attachment0 = attachmentA
-                beam.Attachment1 = attachmentB
+local function updateBoneESP()
+    if not BoneESPEnabled then
+        return
+    end
 
-                beam.Width0 = 0.06
-                beam.Width1 = 0.06
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local character = getCharacter(player)
 
-                beam.FaceCamera = true
+            if character then
+                local existing = BoneObjects[player]
 
-                beam.Parent = character
-
-                table.insert(
-                    BoneObjects[target],
-                    beam
-                )
-
+                if not existing or #existing == 0 then
+                    createBoneESP(player)
+                end
             end
-
         end
-
     end
-
 end
 
---==================================================
--- HEALTH ESP REMOVE
---==================================================
-
-local function RemoveHealthESP(target)
-
-    local character = GetCharacter(target)
-
-    if not character then
-        return
+local function clearAllBones()
+    for player in pairs(BoneObjects) do
+        removeBoneESP(player)
     end
-
-    local head = character:FindFirstChild("Head")
-
-    if not head then
-        return
-    end
-
-    local billboard =
-        head:FindFirstChild("LocalHalfHealth")
-
-    if billboard then
-        billboard:Destroy()
-    end
-
 end
+
+BoneButton.MouseButton1Click:Connect(function()
+    BoneESPEnabled = not BoneESPEnabled
+
+    BoneButton.Text = BoneESPEnabled and "Bone ESP: ON" or "Bone ESP: OFF"
+
+    if BoneESPEnabled then
+        updateBoneESP()
+    else
+        clearAllBones()
+    end
+end)
 
 --==================================================
 -- HEALTH ESP
 --==================================================
 
-local function UpdateHealthESP(target)
+local function removeHealthESP(player)
+    local object = HealthObjects[player]
 
-    local character = GetCharacter(target)
+    if object then
+        safeDestroy(object)
+    end
+
+    HealthObjects[player] = nil
+end
+
+local function createHealthESP(player)
+    if not HealthESPEnabled then
+        return
+    end
+
+    local character = getCharacter(player)
 
     if not character then
         return
     end
 
     local head = character:FindFirstChild("Head")
+    local humanoid = getHumanoid(player)
 
-    if not head then
+    if not head or not humanoid then
         return
     end
 
-    local humanoid = GetHumanoid(character)
+    removeHealthESP(player)
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "LH_HealthESP"
+    billboard.Adornee = head
+    billboard.Size = UDim2.new(0, 120, 0, 30)
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.AlwaysOnTop = true
+    billboard.Parent = head
+
+    local label = Instance.new("TextLabel")
+    label.Name = "Health"
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextStrokeTransparency = 0
+    label.TextSize = 14
+    label.Font = Enum.Font.SourceSansBold
+    label.Parent = billboard
+
+    HealthObjects[player] = billboard
+end
+
+local function updateHealthESP()
+    if not HealthESPEnabled then
+        return
+    end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            local humanoid = getHumanoid(player)
+            local gui = HealthObjects[player]
+
+            if humanoid then
+                if not gui then
+                    createHealthESP(player)
+                    gui = HealthObjects[player]
+                end
+
+                if gui then
+                    local label = gui:FindFirstChild("Health")
+
+                    if label then
+                        local health = humanoid.Health
+                        local maxHealth = humanoid.MaxHealth
+
+                        if maxHealth and maxHealth > 0 then
+                            label.Text = string.format(
+                                "%s | %d/%d",
+                                tostring(player.Name),
+                                math.floor(health),
+                                math.floor(maxHealth)
+                            )
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+local function clearAllHealth()
+    for player in pairs(HealthObjects) do
+        removeHealthESP(player)
+    end
+end
+
+HealthButton.MouseButton1Click:Connect(function()
+    HealthESPEnabled = not HealthESPEnabled
+
+    HealthButton.Text =
+        HealthESPEnabled and "Health ESP: ON" or "Health ESP: OFF"
+
+    if HealthESPEnabled then
+        updateHealthESP()
+    else
+        clearAllHealth()
+    end
+end)
+
+--==================================================
+-- FLY
+--==================================================
+
+local FlyConnection = nil
+
+local function stopFly()
+    FlyEnabled = false
+    FlyButton.Text = "Fly: OFF"
+
+    if FlyConnection then
+        pcall(function()
+            FlyConnection:Disconnect()
+        end)
+
+        FlyConnection = nil
+    end
+
+    local root = getRoot(LocalPlayer)
+
+    if root then
+        pcall(function()
+            root.AssemblyLinearVelocity = Vector3.zero
+        end)
+    end
+end
+
+local function startFly()
+    if FlyEnabled then
+        return
+    end
+
+    FlyEnabled = true
+    FlyButton.Text = "Fly: ON"
+
+    FlyConnection = RunService.RenderStepped:Connect(function()
+        if not FlyEnabled then
+            return
+        end
+
+        local root = getRoot(LocalPlayer)
+        local camera = workspace.CurrentCamera
+
+        if not root or not camera then
+            return
+        end
+
+        local direction = Vector3.zero
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            direction += camera.CFrame.LookVector
+        end
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            direction -= camera.CFrame.LookVector
+        end
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            direction += camera.CFrame.RightVector
+        end
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            direction -= camera.CFrame.RightVector
+        end
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            direction += Vector3.new(0, 1, 0)
+        end
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+            direction -= Vector3.new(0, 1, 0)
+        end
+
+        if direction.Magnitude > 0 then
+            direction = direction.Unit * FlySpeed
+        end
+
+        pcall(function()
+            root.AssemblyLinearVelocity = direction
+        end)
+    end)
+end
+
+FlyButton.MouseButton1Click:Connect(function()
+    if FlyEnabled then
+        stopFly()
+    else
+        startFly()
+    end
+end)
+
+--==================================================
+-- NOCLIP
+--==================================================
+
+local function setNoclip(enabled)
+    NoclipEnabled = enabled
+
+    local character = getCharacter(LocalPlayer)
+
+    if not character then
+        return
+    end
+
+    for _, object in ipairs(character:GetDescendants()) do
+        if object:IsA("BasePart") then
+            if enabled then
+                if CollisionCache[object] == nil then
+                    CollisionCache[object] = object.CanCollide
+                end
+
+                pcall(function()
+                    object.CanCollide = false
+                end)
+            else
+                local old = CollisionCache[object]
+
+                if old ~= nil then
+                    pcall(function()
+                        object.CanCollide = old
+                    end)
+
+                    CollisionCache[object] = nil
+                end
+            end
+        end
+    end
+end
+
+NoclipButton.MouseButton1Click:Connect(function()
+    NoclipEnabled = not NoclipEnabled
+
+    NoclipButton.Text =
+        NoclipEnabled and "Noclip: ON" or "Noclip: OFF"
+
+    setNoclip(NoclipEnabled)
+end)
+
+--==================================================
+-- SPECTATE
+--==================================================
+
+ViewButton.MouseButton1Click:Connect(function()
+    if Spectating then
+        Spectating = false
+        ViewButton.Text = "View Player"
+
+        local camera = workspace.CurrentCamera
+        local humanoid = getHumanoid(LocalPlayer)
+
+        if camera and humanoid then
+            pcall(function()
+                camera.CameraSubject = humanoid
+            end)
+        end
+
+        return
+    end
+
+    if not SelectedPlayer then
+        return
+    end
+
+    local humanoid = getHumanoid(SelectedPlayer)
 
     if not humanoid then
         return
     end
-
-    local billboard =
-        head:FindFirstChild("LocalHalfHealth")
-
-    if not billboard then
-
-        billboard = Instance.new("BillboardGui")
-
-        billboard.Name = "LocalHalfHealth"
-
-        billboard.Size =
-            UDim2.fromOffset(180, 45)
-
-        billboard.StudsOffset =
-            Vector3.new(0, 3, 0)
-
-        billboard.AlwaysOnTop = true
-
-        billboard.Parent = head
-
-        local label = Instance.new("TextLabel")
-
-        label.Name = "HealthLabel"
-
-        label.Size =
-            UDim2.fromScale(1, 1)
-
-        label.BackgroundTransparency = 1
-
-        label.TextColor3 =
-            Color3.fromRGB(255, 255, 255)
-
-        label.TextStrokeTransparency = 0
-
-        label.TextScaled = true
-
-        label.Parent = billboard
-
-    end
-
-    local label =
-        billboard:FindFirstChild("HealthLabel")
-
-    if label then
-
-        local health =
-            math.floor(humanoid.Health)
-
-        local maxHealth =
-            math.floor(humanoid.MaxHealth)
-
-        label.Text =
-            target.Name ..
-            "\nHP: " ..
-            health ..
-            "/" ..
-            maxHealth
-
-    end
-
-end
-
---==================================================
--- VIEW / SPECTATE
---==================================================
-
-local function StopSpectating()
-
-    Spectating = false
 
     local camera = workspace.CurrentCamera
 
-    local character =
-        GetCharacter(LocalPlayer)
+    if camera then
+        pcall(function()
+            camera.CameraSubject = humanoid
+        end)
 
-    local humanoid =
-        GetHumanoid(character)
-
-    if humanoid then
-
-        camera.CameraType =
-            Enum.CameraType.Custom
-
-        camera.CameraSubject =
-            humanoid
-
-    else
-
-        camera.CameraType =
-            Enum.CameraType.Custom
-
+        Spectating = true
+        ViewButton.Text = "Stop Viewing"
     end
-
-    ViewButton.Text = "View Selected"
-
-end
-
-local function StartSpectating()
-
-    if not SelectedPlayer then
-
-        Title.Text = "NO TARGET"
-        return
-
-    end
-
-    local character =
-        GetCharacter(SelectedPlayer)
-
-    if not character then
-
-        Title.Text = "TARGET HAS NO CHARACTER"
-        return
-
-    end
-
-    local humanoid =
-        GetHumanoid(character)
-
-    if not humanoid then
-
-        Title.Text = "TARGET HAS NO HUMANOID"
-        return
-
-    end
-
-    local camera =
-        workspace.CurrentCamera
-
-    camera.CameraType =
-        Enum.CameraType.Custom
-
-    camera.CameraSubject =
-        humanoid
-
-    Spectating = true
-
-    ViewButton.Text = "Stop Viewing"
-
-    Title.Text =
-        "VIEW: " .. SelectedPlayer.Name
-
-end
-
-ViewButton.MouseButton1Click:Connect(function()
-
-    if Spectating then
-        StopSpectating()
-    else
-        StartSpectating()
-    end
-
 end)
 
 --==================================================
 -- TELEPORT
 --==================================================
 
-local function TeleportToSelected()
-
+TeleportButton.MouseButton1Click:Connect(function()
     if not SelectedPlayer then
-
-        Title.Text = "NO TARGET"
         return
-
     end
 
-    local myCharacter =
-        GetCharacter(LocalPlayer)
-
-    local targetCharacter =
-        GetCharacter(SelectedPlayer)
-
-    if not myCharacter then
-
-        Title.Text = "NO CHARACTER"
-        return
-
-    end
-
-    if not targetCharacter then
-
-        Title.Text = "TARGET HAS NO CHARACTER"
-        return
-
-    end
-
-    local myRoot =
-        GetRoot(myCharacter)
-
-    local targetRoot =
-        GetRoot(targetCharacter)
+    local myRoot = getRoot(LocalPlayer)
+    local targetRoot = getRoot(SelectedPlayer)
 
     if not myRoot or not targetRoot then
-
-        Title.Text = "ROOT PART MISSING"
         return
-
     end
 
-    myRoot.CFrame =
-        targetRoot.CFrame *
-        CFrame.new(0, 0, 3)
+    pcall(function()
+        myRoot.CFrame = targetRoot.CFrame + Vector3.new(0, 3, 0)
+    end)
+end)
 
-    Title.Text =
-        "TP: " .. SelectedPlayer.Name
+--==================================================
+-- FLING SELECTED PLAYER
+--==================================================
+-- Intended for your own Local-Half game/admin testing.
+-- Targets SelectedPlayer, never LocalPlayer.
 
+local function flingPlayer(targetPlayer)
+    if not targetPlayer then
+        return false
+    end
+
+    if targetPlayer == LocalPlayer then
+        return false
+    end
+
+    local targetRoot = getRoot(targetPlayer)
+
+    if not targetRoot then
+        return false
+    end
+
+    local myRoot = getRoot(LocalPlayer)
+
+    if not myRoot then
+        return false
+    end
+
+    local direction = targetRoot.Position - myRoot.Position
+
+    if direction.Magnitude < 0.1 then
+        direction = Vector3.new(0, 1, 0)
+    else
+        direction = direction.Unit
+    end
+
+    -- Apply a strong impulse to the selected player's root.
+    pcall(function()
+        if targetRoot.ApplyImpulse then
+            targetRoot:ApplyImpulse(
+                direction * targetRoot.AssemblyMass * FlingPower
+                + Vector3.new(0, targetRoot.AssemblyMass * FlingPower * 0.35, 0)
+            )
+        end
+    end)
+
+    -- Also set velocity for engines that support AssemblyLinearVelocity.
+    pcall(function()
+        targetRoot.AssemblyLinearVelocity =
+            direction * FlingPower
+            + Vector3.new(0, FlingPower * 0.35, 0)
+    end)
+
+    pcall(function()
+        targetRoot.AssemblyAngularVelocity =
+            Vector3.new(
+                FlingPower * 0.5,
+                FlingPower,
+                FlingPower * 0.5
+            )
+    end)
+
+    return true
 end
 
-TeleportButton.MouseButton1Click:Connect(
-    TeleportToSelected
-)
-
---==================================================
--- FLING
---==================================================
-
-local function FlingSelected()
-
+FlingButton.MouseButton1Click:Connect(function()
     if not SelectedPlayer then
-
-        Title.Text = "NO TARGET"
-        return
-
-    end
-
-    local character =
-        GetCharacter(SelectedPlayer)
-
-    if not character then
-
-        Title.Text = "TARGET HAS NO CHARACTER"
-        return
-
-    end
-
-    local root =
-        GetRoot(character)
-
-    if not root then
-
-        Title.Text = "TARGET ROOT MISSING"
-        return
-
-    end
-
-    root.AssemblyLinearVelocity =
-        Vector3.new(
-            math.random(-FlingPower, FlingPower),
-            FlingPower,
-            math.random(-FlingPower, FlingPower)
-        )
-
-    Title.Text =
-        "FLUNG: " .. SelectedPlayer.Name
-
-end
-
-FlingButton.MouseButton1Click:Connect(
-    FlingSelected
-)
-
---==================================================
--- FLY
---==================================================
-
-local function UpdateFly()
-
-    if not Flying then
+        FlingButton.Text = "Select Player!"
+        task.delay(1, function()
+            if FlingButton then
+                FlingButton.Text = "Fling Selected"
+            end
+        end)
         return
     end
 
-    local character =
-        GetCharacter(LocalPlayer)
-
-    if not character then
+    if SelectedPlayer == LocalPlayer then
         return
     end
 
-    local root =
-        GetRoot(character)
+    local success = flingPlayer(SelectedPlayer)
 
-    if not root then
-        return
-    end
+    if success then
+        FlingButton.Text = "FLUNG!"
 
-    local camera =
-        workspace.CurrentCamera
-
-    local direction =
-        Vector3.zero
-
-    if UserInputService:IsKeyDown(
-        Enum.KeyCode.W
-    ) then
-
-        direction =
-            direction + camera.CFrame.LookVector
-
-    end
-
-    if UserInputService:IsKeyDown(
-        Enum.KeyCode.S
-    ) then
-
-        direction =
-            direction - camera.CFrame.LookVector
-
-    end
-
-    if UserInputService:IsKeyDown(
-        Enum.KeyCode.A
-    ) then
-
-        direction =
-            direction - camera.CFrame.RightVector
-
-    end
-
-    if UserInputService:IsKeyDown(
-        Enum.KeyCode.D
-    ) then
-
-        direction =
-            direction + camera.CFrame.RightVector
-
-    end
-
-    if FlyUp then
-
-        direction =
-            direction + Vector3.new(0, 1, 0)
-
-    end
-
-    if FlyDown then
-
-        direction =
-            direction - Vector3.new(0, 1, 0)
-
-    end
-
-    if direction.Magnitude > 0 then
-
-        direction =
-            direction.Unit * FlySpeed
-
-    end
-
-    root.AssemblyLinearVelocity =
-        direction
-
-end
-
-FlyButton.MouseButton1Click:Connect(function()
-
-    Flying = not Flying
-
-    if Flying then
-
-        FlyButton.Text = "Fly: ON"
-
+        task.delay(0.7, function()
+            if FlingButton then
+                FlingButton.Text = "Fling Selected"
+            end
+        end)
     else
+        FlingButton.Text = "Target Invalid"
 
-        FlyButton.Text = "Fly: OFF"
-
-        local character =
-            GetCharacter(LocalPlayer)
-
-        local root =
-            GetRoot(character)
-
-        if root then
-            root.AssemblyLinearVelocity =
-                Vector3.zero
-        end
-
+        task.delay(1, function()
+            if FlingButton then
+                FlingButton.Text = "Fling Selected"
+            end
+        end)
     end
-
 end)
 
 --==================================================
--- FLY UP / DOWN
+-- CHARACTER RESPAWN
 --==================================================
 
-UserInputService.InputBegan:Connect(
-    function(input, processed)
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.5)
 
-        if processed then
-            return
-        end
+    CollisionCache = {}
 
-        if input.KeyCode ==
-            Enum.KeyCode.Space then
-
-            FlyUp = true
-
-        elseif input.KeyCode ==
-            Enum.KeyCode.LeftControl then
-
-            FlyDown = true
-
-        end
-
-    end
-)
-
-UserInputService.InputEnded:Connect(
-    function(input)
-
-        if input.KeyCode ==
-            Enum.KeyCode.Space then
-
-            FlyUp = false
-
-        elseif input.KeyCode ==
-            Enum.KeyCode.LeftControl then
-
-            FlyDown = false
-
-        end
-
-    end
-)
-
---==================================================
--- NOCLIP
---==================================================
-
-NoclipButton.MouseButton1Click:Connect(function()
-
-    Noclip = not Noclip
-
-    if Noclip then
-
-        NoclipButton.Text =
-            "Noclip: ON"
-
-    else
-
-        NoclipButton.Text =
-            "Noclip: OFF"
-
+    if NoclipEnabled then
+        setNoclip(true)
     end
 
+    if FlyEnabled then
+        stopFly()
+    end
+
+    if Spectating then
+        Spectating = false
+        ViewButton.Text = "View Player"
+    end
 end)
 
-local function UpdateNoclip()
+for _, player in ipairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then
+        player.CharacterAdded:Connect(function()
+            task.wait(0.3)
 
-    if not Noclip then
-        return
-    end
+            removeBoneESP(player)
+            removeHealthESP(player)
 
-    local character =
-        GetCharacter(LocalPlayer)
-
-    if not character then
-        return
-    end
-
-    for _, object in ipairs(
-        character:GetDescendants()
-    ) do
-
-        if object:IsA("BasePart") then
-
-            object.CanCollide = false
-
-        end
-
-    end
-
-end
-
---==================================================
--- ESP BUTTONS
---==================================================
-
-BoneButton.MouseButton1Click:Connect(function()
-
-    BoneESP = not BoneESP
-
-    if BoneESP then
-
-        BoneButton.Text =
-            "Bone ESP: ON"
-
-    else
-
-        BoneButton.Text =
-            "Bone ESP: OFF"
-
-        for target in pairs(BoneObjects) do
-            RemoveBoneESP(target)
-        end
-
-    end
-
-end)
-
-HealthButton.MouseButton1Click:Connect(function()
-
-    HealthESP = not HealthESP
-
-    if HealthESP then
-
-        HealthButton.Text =
-            "Health ESP: ON"
-
-    else
-
-        HealthButton.Text =
-            "Health ESP: OFF"
-
-        for _, target in ipairs(
-            Players:GetPlayers()
-        ) do
-
-            if target ~= LocalPlayer then
-                RemoveHealthESP(target)
+            if BoneESPEnabled then
+                createBoneESP(player)
             end
 
-        end
-
-    end
-
-end)
-
---==================================================
--- PLAYER SETUP
---==================================================
-
-local function SetupPlayer(target)
-
-    if target == LocalPlayer then
-        return
-    end
-
-    if Connections[target] then
-
-        for _, connection in ipairs(
-            Connections[target]
-        ) do
-
-            if connection then
-                connection:Disconnect()
+            if HealthESPEnabled then
+                createHealthESP(player)
             end
-
-        end
-
+        end)
     end
-
-    Connections[target] = {}
-
-    table.insert(
-        Connections[target],
-
-        target.CharacterAdded:Connect(
-            function()
-
-                task.wait(0.3)
-
-                if BoneESP then
-                    CreateBoneESP(target)
-                end
-
-                if HealthESP then
-                    UpdateHealthESP(target)
-                end
-
-            end
-        )
-    )
-
 end
 
-for _, target in ipairs(
-    Players:GetPlayers()
-) do
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        task.wait(0.3)
 
-    SetupPlayer(target)
-
-end
-
---==================================================
--- PLAYER ADDED
---==================================================
-
-Players.PlayerAdded:Connect(function(target)
-
-    SetupPlayer(target)
-
-    task.wait(0.1)
-
-    RefreshPlayerList()
-
-end)
-
---==================================================
--- PLAYER REMOVED
---==================================================
-
-Players.PlayerRemoving:Connect(function(target)
-
-    if SelectedPlayer == target then
-
-        SelectedPlayer = nil
-
-        Title.Text =
-            "LOCAL-HALF"
-
-    end
-
-    RemoveBoneESP(target)
-    RemoveHealthESP(target)
-
-    if Connections[target] then
-
-        for _, connection in ipairs(
-            Connections[target]
-        ) do
-
-            if connection then
-                connection:Disconnect()
-            end
-
+        if BoneESPEnabled then
+            createBoneESP(player)
         end
 
-        Connections[target] = nil
-
-    end
-
-    RefreshPlayerList()
-
+        if HealthESPEnabled then
+            createHealthESP(player)
+        end
+    end)
 end)
 
 --==================================================
@@ -1119,116 +1003,39 @@ end)
 --==================================================
 
 RunService.Heartbeat:Connect(function()
-
-    UpdateFly()
-    UpdateNoclip()
-
-    for _, target in ipairs(
-        Players:GetPlayers()
-    ) do
-
-        if target ~= LocalPlayer then
-
-            local character =
-                GetCharacter(target)
-
-            if character then
-
-                --==================================
-                -- BONE ESP
-                --==================================
-
-                if BoneESP then
-
-                    if not BoneObjects[target] then
-
-                        CreateBoneESP(target)
-
-                    end
-
-                end
-
-                --==================================
-                -- HEALTH ESP
-                --==================================
-
-                if HealthESP then
-
-                    UpdateHealthESP(target)
-
-                end
-
-            end
-
-        end
-
+    if NoclipEnabled then
+        setNoclip(true)
     end
 
-    --==============================================
-    -- KEEP SPECTATE WORKING AFTER RESPAWN
-    --==============================================
+    if BoneESPEnabled then
+        updateBoneESP()
+    end
 
+    if HealthESPEnabled then
+        updateHealthESP()
+    end
+
+    -- Keep spectating the selected player's current character.
     if Spectating and SelectedPlayer then
+        local camera = workspace.CurrentCamera
+        local humanoid = getHumanoid(SelectedPlayer)
 
-        local targetCharacter =
-            GetCharacter(SelectedPlayer)
-
-        local targetHumanoid =
-            GetHumanoid(targetCharacter)
-
-        if targetHumanoid then
-
-            local camera =
-                workspace.CurrentCamera
-
-            if camera.CameraSubject ~=
-                targetHumanoid then
-
-                camera.CameraType =
-                    Enum.CameraType.Custom
-
-                camera.CameraSubject =
-                    targetHumanoid
-
-            end
-
+        if camera and humanoid then
+            pcall(function()
+                camera.CameraSubject = humanoid
+            end)
         end
-
     end
-
 end)
 
 --==================================================
--- LOCAL PLAYER RESPAWN
+-- INITIAL STATE
 --==================================================
 
-LocalPlayer.CharacterAdded:Connect(function()
+SelectedLabel.Text = "Selected: None"
+BoneButton.Text = "Bone ESP: OFF"
+HealthButton.Text = "Health ESP: OFF"
+FlyButton.Text = "Fly: OFF"
+NoclipButton.Text = "Noclip: OFF"
 
-    task.wait(0.5)
-
-    if Flying then
-
-        FlyButton.Text =
-            "Fly: ON"
-
-    end
-
-    if Spectating then
-
-        task.wait(0.5)
-
-        if SelectedPlayer then
-            StartSpectating()
-        end
-
-    end
-
-end)
-
---==================================================
--- START
---==================================================
-
-print(
-    "LOCAL-HALF loaded successfully"
-)
+print("Local-Half panel loaded successfully.")
