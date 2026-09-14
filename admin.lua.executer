@@ -1,10 +1,10 @@
 --==================================================
--- LOCAL-HALF / LOADSTRING VERSION
--- Roblox-style Luau API
+-- LOCAL-HALF COMPLETE ADMIN / TEST GUI
 --==================================================
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -21,13 +21,23 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 local BoneESP = false
 local HealthESP = false
+local Noclip = false
+local Flying = false
+local Spectating = false
+
 local SelectedPlayer = nil
+
+local FlySpeed = 60
 local FlingPower = 250
 
 local BoneObjects = {}
+local Connections = {}
+
+local FlyUp = false
+local FlyDown = false
 
 --==================================================
--- CHARACTER
+-- CHARACTER HELPERS
 --==================================================
 
 local function GetCharacter(player)
@@ -44,8 +54,26 @@ local function GetCharacter(player)
     return nil
 end
 
+local function GetRoot(character)
+    if not character then
+        return nil
+    end
+
+    return character:FindFirstChild("HumanoidRootPart")
+        or character:FindFirstChild("Torso")
+        or character:FindFirstChild("UpperTorso")
+end
+
+local function GetHumanoid(character)
+    if not character then
+        return nil
+    end
+
+    return character:FindFirstChildOfClass("Humanoid")
+end
+
 --==================================================
--- GUI
+-- REMOVE OLD GUI
 --==================================================
 
 local OldGui = PlayerGui:FindFirstChild("LocalHalfGUI")
@@ -54,6 +82,10 @@ if OldGui then
     OldGui:Destroy()
 end
 
+--==================================================
+-- GUI
+--==================================================
+
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "LocalHalfGUI"
 ScreenGui.ResetOnSpawn = false
@@ -61,15 +93,68 @@ ScreenGui.Parent = PlayerGui
 
 local Main = Instance.new("Frame")
 Main.Name = "Main"
-Main.Size = UDim2.fromOffset(270, 420)
-Main.Position = UDim2.fromOffset(30, 120)
+Main.Size = UDim2.fromOffset(290, 520)
+Main.Position = UDim2.fromOffset(30, 100)
 Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 Main.BorderSizePixel = 0
 Main.Active = true
-Main.Draggable = true
 Main.Parent = ScreenGui
 
+--==================================================
+-- DRAGGING
+--==================================================
+
+local Dragging = false
+local DragStart
+local StartPosition
+
+local function UpdateDrag(input)
+    local Delta = input.Position - DragStart
+
+    Main.Position = UDim2.new(
+        StartPosition.X.Scale,
+        StartPosition.X.Offset + Delta.X,
+        StartPosition.Y.Scale,
+        StartPosition.Y.Offset + Delta.Y
+    )
+end
+
+Main.InputBegan:Connect(function(input)
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+        Dragging = true
+        DragStart = input.Position
+        StartPosition = Main.Position
+
+        input.Changed:Connect(function()
+
+            if input.UserInputState == Enum.UserInputState.End then
+                Dragging = false
+            end
+
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+
+    if Dragging then
+
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            UpdateDrag(input)
+        end
+
+    end
+
+end)
+
+--==================================================
+-- TITLE
+--==================================================
+
 local Title = Instance.new("TextLabel")
+Title.Name = "Title"
 Title.Size = UDim2.new(1, 0, 0, 40)
 Title.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
 Title.BorderSizePixel = 0
@@ -78,45 +163,85 @@ Title.Text = "LOCAL-HALF"
 Title.TextSize = 18
 Title.Parent = Main
 
+--==================================================
+-- BUTTON CREATOR
+--==================================================
+
 local function MakeButton(text, y)
+
     local button = Instance.new("TextButton")
 
-    button.Size = UDim2.new(1, -20, 0, 35)
+    button.Size = UDim2.new(1, -20, 0, 32)
     button.Position = UDim2.fromOffset(10, y)
+
     button.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
     button.BorderSizePixel = 0
+
     button.TextColor3 = Color3.fromRGB(255, 255, 255)
     button.Text = text
-    button.TextSize = 14
+    button.TextSize = 13
+
     button.Parent = Main
 
     return button
 end
 
 local BoneButton = MakeButton("Bone ESP: OFF", 50)
-local HealthButton = MakeButton("Health ESP: OFF", 90)
-local FlingButton = MakeButton("FLING SELECTED", 130)
+local HealthButton = MakeButton("Health ESP: OFF", 87)
+local FlyButton = MakeButton("Fly: OFF", 124)
+local NoclipButton = MakeButton("Noclip: OFF", 161)
+
+local ViewButton = MakeButton("View Selected", 198)
+local TeleportButton = MakeButton("Teleport To Selected", 235)
+local FlingButton = MakeButton("Fling Selected", 272)
 
 --==================================================
 -- PLAYER LIST
 --==================================================
 
 local PlayerList = Instance.new("ScrollingFrame")
+
 PlayerList.Name = "PlayerList"
-PlayerList.Size = UDim2.new(1, -20, 0, 240)
-PlayerList.Position = UDim2.fromOffset(10, 175)
+
+PlayerList.Size = UDim2.new(1, -20, 0, 210)
+PlayerList.Position = UDim2.fromOffset(10, 312)
+
 PlayerList.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
 PlayerList.BorderSizePixel = 0
-PlayerList.ScrollBarThickness = 5
+
+PlayerList.ScrollBarThickness = 6
 PlayerList.CanvasSize = UDim2.fromOffset(0, 0)
+
 PlayerList.Parent = Main
+
+--==================================================
+-- SELECT PLAYER
+--==================================================
+
+local function SetSelectedPlayer(player)
+
+    SelectedPlayer = player
+
+    if player then
+        Title.Text = "TARGET: " .. player.Name
+    else
+        Title.Text = "LOCAL-HALF"
+    end
+
+end
+
+--==================================================
+-- PLAYER LIST REFRESH
+--==================================================
 
 local function RefreshPlayerList()
 
     for _, object in ipairs(PlayerList:GetChildren()) do
+
         if object:IsA("TextButton") then
             object:Destroy()
         end
+
     end
 
     local y = 5
@@ -129,76 +254,34 @@ local function RefreshPlayerList()
 
             button.Size = UDim2.new(1, -10, 0, 30)
             button.Position = UDim2.fromOffset(5, y)
+
             button.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
             button.BorderSizePixel = 0
+
             button.TextColor3 = Color3.fromRGB(255, 255, 255)
+
             button.Text = target.Name
             button.TextSize = 13
+
             button.Parent = PlayerList
 
             button.MouseButton1Click:Connect(function()
-                SelectedPlayer = target
-                Title.Text = "TARGET: " .. target.Name
+
+                SetSelectedPlayer(target)
+
             end)
 
             y = y + 35
+
         end
+
     end
 
     PlayerList.CanvasSize = UDim2.fromOffset(0, y)
+
 end
 
 RefreshPlayerList()
-
-Players.PlayerAdded:Connect(function()
-    task.wait(0.1)
-    RefreshPlayerList()
-end)
-
-Players.PlayerRemoving:Connect(function(target)
-
-    if SelectedPlayer == target then
-        SelectedPlayer = nil
-        Title.Text = "LOCAL-HALF"
-    end
-
-    if BoneObjects[target] then
-
-        for _, object in ipairs(BoneObjects[target]) do
-            if object and object.Parent then
-                object:Destroy()
-            end
-        end
-
-        BoneObjects[target] = nil
-    end
-
-    RefreshPlayerList()
-end)
-
---==================================================
--- ESP TOGGLES
---==================================================
-
-BoneButton.MouseButton1Click:Connect(function()
-
-    BoneESP = not BoneESP
-
-    BoneButton.Text =
-        BoneESP and "Bone ESP: ON"
-        or "Bone ESP: OFF"
-
-end)
-
-HealthButton.MouseButton1Click:Connect(function()
-
-    HealthESP = not HealthESP
-
-    HealthButton.Text =
-        HealthESP and "Health ESP: ON"
-        or "Health ESP: OFF"
-
-end)
 
 --==================================================
 -- BONE MAP
@@ -207,13 +290,17 @@ end)
 local BonePairs = {
 
     -- R6
+
     {"Head", "Torso"},
+
     {"Torso", "Left Arm"},
     {"Torso", "Right Arm"},
+
     {"Torso", "Left Leg"},
     {"Torso", "Right Leg"},
 
     -- R15
+
     {"Head", "UpperTorso"},
     {"UpperTorso", "LowerTorso"},
 
@@ -235,7 +322,7 @@ local BonePairs = {
 }
 
 --==================================================
--- SAFE ATTACHMENT
+-- ATTACHMENT
 --==================================================
 
 local function GetAttachment(part, name)
@@ -250,11 +337,13 @@ local function GetAttachment(part, name)
         return attachment
     end
 
-    attachment = Instance.new("Attachment")
-    attachment.Name = name
-    attachment.Parent = part
+    local newAttachment = Instance.new("Attachment")
 
-    return attachment
+    newAttachment.Name = name
+    newAttachment.Parent = part
+
+    return newAttachment
+
 end
 
 --==================================================
@@ -278,6 +367,7 @@ local function RemoveBoneESP(target)
     end
 
     BoneObjects[target] = nil
+
 end
 
 --==================================================
@@ -314,24 +404,32 @@ local function CreateBoneESP(target)
                 local beam = Instance.new("Beam")
 
                 beam.Name = "LocalHalfBone"
+
                 beam.Attachment0 = attachmentA
                 beam.Attachment1 = attachmentB
+
                 beam.Width0 = 0.06
                 beam.Width1 = 0.06
+
                 beam.FaceCamera = true
+
                 beam.Parent = character
 
                 table.insert(
                     BoneObjects[target],
                     beam
                 )
+
             end
+
         end
+
     end
+
 end
 
 --==================================================
--- HEALTH ESP
+-- HEALTH ESP REMOVE
 --==================================================
 
 local function RemoveHealthESP(target)
@@ -354,7 +452,12 @@ local function RemoveHealthESP(target)
     if billboard then
         billboard:Destroy()
     end
+
 end
+
+--==================================================
+-- HEALTH ESP
+--==================================================
 
 local function UpdateHealthESP(target)
 
@@ -370,8 +473,7 @@ local function UpdateHealthESP(target)
         return
     end
 
-    local humanoid =
-        character:FindFirstChildOfClass("Humanoid")
+    local humanoid = GetHumanoid(character)
 
     if not humanoid then
         return
@@ -385,20 +487,35 @@ local function UpdateHealthESP(target)
         billboard = Instance.new("BillboardGui")
 
         billboard.Name = "LocalHalfHealth"
-        billboard.Size = UDim2.fromOffset(180, 45)
-        billboard.StudsOffset = Vector3.new(0, 3, 0)
+
+        billboard.Size =
+            UDim2.fromOffset(180, 45)
+
+        billboard.StudsOffset =
+            Vector3.new(0, 3, 0)
+
         billboard.AlwaysOnTop = true
+
         billboard.Parent = head
 
         local label = Instance.new("TextLabel")
 
         label.Name = "HealthLabel"
-        label.Size = UDim2.fromScale(1, 1)
+
+        label.Size =
+            UDim2.fromScale(1, 1)
+
         label.BackgroundTransparency = 1
-        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+        label.TextColor3 =
+            Color3.fromRGB(255, 255, 255)
+
         label.TextStrokeTransparency = 0
+
         label.TextScaled = true
+
         label.Parent = billboard
+
     end
 
     local label =
@@ -406,18 +523,173 @@ local function UpdateHealthESP(target)
 
     if label then
 
-        local health = humanoid.Health
-        local maxHealth = humanoid.MaxHealth
+        local health =
+            math.floor(humanoid.Health)
+
+        local maxHealth =
+            math.floor(humanoid.MaxHealth)
 
         label.Text =
             target.Name ..
             "\nHP: " ..
-            math.floor(health) ..
+            health ..
             "/" ..
-            math.floor(maxHealth)
+            maxHealth
 
     end
+
 end
+
+--==================================================
+-- VIEW / SPECTATE
+--==================================================
+
+local function StopSpectating()
+
+    Spectating = false
+
+    local camera = workspace.CurrentCamera
+
+    local character =
+        GetCharacter(LocalPlayer)
+
+    local humanoid =
+        GetHumanoid(character)
+
+    if humanoid then
+
+        camera.CameraType =
+            Enum.CameraType.Custom
+
+        camera.CameraSubject =
+            humanoid
+
+    else
+
+        camera.CameraType =
+            Enum.CameraType.Custom
+
+    end
+
+    ViewButton.Text = "View Selected"
+
+end
+
+local function StartSpectating()
+
+    if not SelectedPlayer then
+
+        Title.Text = "NO TARGET"
+        return
+
+    end
+
+    local character =
+        GetCharacter(SelectedPlayer)
+
+    if not character then
+
+        Title.Text = "TARGET HAS NO CHARACTER"
+        return
+
+    end
+
+    local humanoid =
+        GetHumanoid(character)
+
+    if not humanoid then
+
+        Title.Text = "TARGET HAS NO HUMANOID"
+        return
+
+    end
+
+    local camera =
+        workspace.CurrentCamera
+
+    camera.CameraType =
+        Enum.CameraType.Custom
+
+    camera.CameraSubject =
+        humanoid
+
+    Spectating = true
+
+    ViewButton.Text = "Stop Viewing"
+
+    Title.Text =
+        "VIEW: " .. SelectedPlayer.Name
+
+end
+
+ViewButton.MouseButton1Click:Connect(function()
+
+    if Spectating then
+        StopSpectating()
+    else
+        StartSpectating()
+    end
+
+end)
+
+--==================================================
+-- TELEPORT
+--==================================================
+
+local function TeleportToSelected()
+
+    if not SelectedPlayer then
+
+        Title.Text = "NO TARGET"
+        return
+
+    end
+
+    local myCharacter =
+        GetCharacter(LocalPlayer)
+
+    local targetCharacter =
+        GetCharacter(SelectedPlayer)
+
+    if not myCharacter then
+
+        Title.Text = "NO CHARACTER"
+        return
+
+    end
+
+    if not targetCharacter then
+
+        Title.Text = "TARGET HAS NO CHARACTER"
+        return
+
+    end
+
+    local myRoot =
+        GetRoot(myCharacter)
+
+    local targetRoot =
+        GetRoot(targetCharacter)
+
+    if not myRoot or not targetRoot then
+
+        Title.Text = "ROOT PART MISSING"
+        return
+
+    end
+
+    myRoot.CFrame =
+        targetRoot.CFrame *
+        CFrame.new(0, 0, 3)
+
+    Title.Text =
+        "TP: " .. SelectedPlayer.Name
+
+end
+
+TeleportButton.MouseButton1Click:Connect(
+    TeleportToSelected
+)
 
 --==================================================
 -- FLING
@@ -426,39 +698,316 @@ end
 local function FlingSelected()
 
     if not SelectedPlayer then
+
         Title.Text = "NO TARGET"
         return
+
     end
 
     local character =
         GetCharacter(SelectedPlayer)
 
     if not character then
+
         Title.Text = "TARGET HAS NO CHARACTER"
+        return
+
+    end
+
+    local root =
+        GetRoot(character)
+
+    if not root then
+
+        Title.Text = "TARGET ROOT MISSING"
+        return
+
+    end
+
+    root.AssemblyLinearVelocity =
+        Vector3.new(
+            math.random(-FlingPower, FlingPower),
+            FlingPower,
+            math.random(-FlingPower, FlingPower)
+        )
+
+    Title.Text =
+        "FLUNG: " .. SelectedPlayer.Name
+
+end
+
+FlingButton.MouseButton1Click:Connect(
+    FlingSelected
+)
+
+--==================================================
+-- FLY
+--==================================================
+
+local function UpdateFly()
+
+    if not Flying then
+        return
+    end
+
+    local character =
+        GetCharacter(LocalPlayer)
+
+    if not character then
         return
     end
 
     local root =
-        character:FindFirstChild("HumanoidRootPart")
+        GetRoot(character)
 
     if not root then
-        Title.Text = "NO ROOT PART"
         return
     end
 
-    root.AssemblyLinearVelocity = Vector3.new(
-        math.random(-FlingPower, FlingPower),
-        FlingPower,
-        math.random(-FlingPower, FlingPower)
-    )
+    local camera =
+        workspace.CurrentCamera
 
-    Title.Text = "FLUNG: " .. SelectedPlayer.Name
+    local direction =
+        Vector3.zero
+
+    if UserInputService:IsKeyDown(
+        Enum.KeyCode.W
+    ) then
+
+        direction =
+            direction + camera.CFrame.LookVector
+
+    end
+
+    if UserInputService:IsKeyDown(
+        Enum.KeyCode.S
+    ) then
+
+        direction =
+            direction - camera.CFrame.LookVector
+
+    end
+
+    if UserInputService:IsKeyDown(
+        Enum.KeyCode.A
+    ) then
+
+        direction =
+            direction - camera.CFrame.RightVector
+
+    end
+
+    if UserInputService:IsKeyDown(
+        Enum.KeyCode.D
+    ) then
+
+        direction =
+            direction + camera.CFrame.RightVector
+
+    end
+
+    if FlyUp then
+
+        direction =
+            direction + Vector3.new(0, 1, 0)
+
+    end
+
+    if FlyDown then
+
+        direction =
+            direction - Vector3.new(0, 1, 0)
+
+    end
+
+    if direction.Magnitude > 0 then
+
+        direction =
+            direction.Unit * FlySpeed
+
+    end
+
+    root.AssemblyLinearVelocity =
+        direction
+
 end
 
-FlingButton.MouseButton1Click:Connect(FlingSelected)
+FlyButton.MouseButton1Click:Connect(function()
+
+    Flying = not Flying
+
+    if Flying then
+
+        FlyButton.Text = "Fly: ON"
+
+    else
+
+        FlyButton.Text = "Fly: OFF"
+
+        local character =
+            GetCharacter(LocalPlayer)
+
+        local root =
+            GetRoot(character)
+
+        if root then
+            root.AssemblyLinearVelocity =
+                Vector3.zero
+        end
+
+    end
+
+end)
 
 --==================================================
--- RESPAWN HANDLING
+-- FLY UP / DOWN
+--==================================================
+
+UserInputService.InputBegan:Connect(
+    function(input, processed)
+
+        if processed then
+            return
+        end
+
+        if input.KeyCode ==
+            Enum.KeyCode.Space then
+
+            FlyUp = true
+
+        elseif input.KeyCode ==
+            Enum.KeyCode.LeftControl then
+
+            FlyDown = true
+
+        end
+
+    end
+)
+
+UserInputService.InputEnded:Connect(
+    function(input)
+
+        if input.KeyCode ==
+            Enum.KeyCode.Space then
+
+            FlyUp = false
+
+        elseif input.KeyCode ==
+            Enum.KeyCode.LeftControl then
+
+            FlyDown = false
+
+        end
+
+    end
+)
+
+--==================================================
+-- NOCLIP
+--==================================================
+
+NoclipButton.MouseButton1Click:Connect(function()
+
+    Noclip = not Noclip
+
+    if Noclip then
+
+        NoclipButton.Text =
+            "Noclip: ON"
+
+    else
+
+        NoclipButton.Text =
+            "Noclip: OFF"
+
+    end
+
+end)
+
+local function UpdateNoclip()
+
+    if not Noclip then
+        return
+    end
+
+    local character =
+        GetCharacter(LocalPlayer)
+
+    if not character then
+        return
+    end
+
+    for _, object in ipairs(
+        character:GetDescendants()
+    ) do
+
+        if object:IsA("BasePart") then
+
+            object.CanCollide = false
+
+        end
+
+    end
+
+end
+
+--==================================================
+-- ESP BUTTONS
+--==================================================
+
+BoneButton.MouseButton1Click:Connect(function()
+
+    BoneESP = not BoneESP
+
+    if BoneESP then
+
+        BoneButton.Text =
+            "Bone ESP: ON"
+
+    else
+
+        BoneButton.Text =
+            "Bone ESP: OFF"
+
+        for target in pairs(BoneObjects) do
+            RemoveBoneESP(target)
+        end
+
+    end
+
+end)
+
+HealthButton.MouseButton1Click:Connect(function()
+
+    HealthESP = not HealthESP
+
+    if HealthESP then
+
+        HealthButton.Text =
+            "Health ESP: ON"
+
+    else
+
+        HealthButton.Text =
+            "Health ESP: OFF"
+
+        for _, target in ipairs(
+            Players:GetPlayers()
+        ) do
+
+            if target ~= LocalPlayer then
+                RemoveHealthESP(target)
+            end
+
+        end
+
+    end
+
+end)
+
+--==================================================
+-- PLAYER SETUP
 --==================================================
 
 local function SetupPlayer(target)
@@ -467,22 +1016,103 @@ local function SetupPlayer(target)
         return
     end
 
-    target.CharacterAdded:Connect(function()
+    if Connections[target] then
 
-        task.wait(0.25)
+        for _, connection in ipairs(
+            Connections[target]
+        ) do
 
-        if BoneESP then
-            CreateBoneESP(target)
+            if connection then
+                connection:Disconnect()
+            end
+
         end
 
-    end)
+    end
+
+    Connections[target] = {}
+
+    table.insert(
+        Connections[target],
+
+        target.CharacterAdded:Connect(
+            function()
+
+                task.wait(0.3)
+
+                if BoneESP then
+                    CreateBoneESP(target)
+                end
+
+                if HealthESP then
+                    UpdateHealthESP(target)
+                end
+
+            end
+        )
+    )
+
 end
 
-for _, target in ipairs(Players:GetPlayers()) do
+for _, target in ipairs(
+    Players:GetPlayers()
+) do
+
     SetupPlayer(target)
+
 end
 
-Players.PlayerAdded:Connect(SetupPlayer)
+--==================================================
+-- PLAYER ADDED
+--==================================================
+
+Players.PlayerAdded:Connect(function(target)
+
+    SetupPlayer(target)
+
+    task.wait(0.1)
+
+    RefreshPlayerList()
+
+end)
+
+--==================================================
+-- PLAYER REMOVED
+--==================================================
+
+Players.PlayerRemoving:Connect(function(target)
+
+    if SelectedPlayer == target then
+
+        SelectedPlayer = nil
+
+        Title.Text =
+            "LOCAL-HALF"
+
+    end
+
+    RemoveBoneESP(target)
+    RemoveHealthESP(target)
+
+    if Connections[target] then
+
+        for _, connection in ipairs(
+            Connections[target]
+        ) do
+
+            if connection then
+                connection:Disconnect()
+            end
+
+        end
+
+        Connections[target] = nil
+
+    end
+
+    RefreshPlayerList()
+
+end)
 
 --==================================================
 -- MAIN UPDATE
@@ -490,35 +1120,115 @@ Players.PlayerAdded:Connect(SetupPlayer)
 
 RunService.Heartbeat:Connect(function()
 
-    for _, target in ipairs(Players:GetPlayers()) do
+    UpdateFly()
+    UpdateNoclip()
+
+    for _, target in ipairs(
+        Players:GetPlayers()
+    ) do
 
         if target ~= LocalPlayer then
 
-            local character = GetCharacter(target)
+            local character =
+                GetCharacter(target)
 
             if character then
 
-                -- Bone ESP
+                --==================================
+                -- BONE ESP
+                --==================================
+
                 if BoneESP then
 
                     if not BoneObjects[target] then
+
                         CreateBoneESP(target)
+
                     end
-
-                elseif BoneObjects[target] then
-
-                    RemoveBoneESP(target)
 
                 end
 
-                -- Health ESP
+                --==================================
+                -- HEALTH ESP
+                --==================================
+
                 if HealthESP then
+
                     UpdateHealthESP(target)
-                else
-                    RemoveHealthESP(target)
+
                 end
 
             end
+
         end
+
     end
+
+    --==============================================
+    -- KEEP SPECTATE WORKING AFTER RESPAWN
+    --==============================================
+
+    if Spectating and SelectedPlayer then
+
+        local targetCharacter =
+            GetCharacter(SelectedPlayer)
+
+        local targetHumanoid =
+            GetHumanoid(targetCharacter)
+
+        if targetHumanoid then
+
+            local camera =
+                workspace.CurrentCamera
+
+            if camera.CameraSubject ~=
+                targetHumanoid then
+
+                camera.CameraType =
+                    Enum.CameraType.Custom
+
+                camera.CameraSubject =
+                    targetHumanoid
+
+            end
+
+        end
+
+    end
+
 end)
+
+--==================================================
+-- LOCAL PLAYER RESPAWN
+--==================================================
+
+LocalPlayer.CharacterAdded:Connect(function()
+
+    task.wait(0.5)
+
+    if Flying then
+
+        FlyButton.Text =
+            "Fly: ON"
+
+    end
+
+    if Spectating then
+
+        task.wait(0.5)
+
+        if SelectedPlayer then
+            StartSpectating()
+        end
+
+    end
+
+end)
+
+--==================================================
+-- START
+--==================================================
+
+print(
+    "LOCAL-HALF loaded successfully"
+)
