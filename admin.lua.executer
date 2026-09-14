@@ -1,254 +1,528 @@
--- Local-half test script
--- For your own game/test environment.
--- Uses Roblox-style Luau APIs.
+--==================================================
+-- LOCAL-HALF TEST SCRIPT
+-- Roblox-style Luau API
+--==================================================
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
-local player = Players.LocalPlayer
-local character = script.Parent
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
---// GUI
-local gui = Instance.new("ScreenGui")
-gui.Name = "TestAdminGui"
-gui.ResetOnSpawn = false
-gui.Parent = player:WaitForChild("PlayerGui")
+--==================================================
+-- SETTINGS
+--==================================================
 
-local frame = Instance.new("Frame")
-frame.Size = UDim2.fromOffset(230, 330)
-frame.Position = UDim2.fromOffset(30, 120)
-frame.Active = true
-frame.Draggable = true
-frame.Parent = gui
+local BoneESP = false
+local HealthESP = false
+local SelectedPlayer = nil
+local FlingPower = 250
 
-local title = Instance.new("TextLabel")
-title.Size = UDim2.fromOffset(230, 35)
-title.Text = "Physics / ESP"
-title.Parent = frame
+local ESPObjects = {}
 
---// State
-local boneESP = false
-local healthESP = false
-local selectedPlayer = nil
+--==================================================
+-- GUI
+--==================================================
 
-local buttons = {}
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "LocalHalfGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = PlayerGui
 
-local function makeButton(text, y)
-    local b = Instance.new("TextButton")
-    b.Size = UDim2.fromOffset(200, 35)
-    b.Position = UDim2.fromOffset(15, y)
-    b.Text = text
-    b.Parent = frame
-    return b
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Size = UDim2.fromOffset(260, 390)
+Main.Position = UDim2.fromOffset(30, 120)
+Main.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Main.BorderSizePixel = 0
+Main.Active = true
+Main.Draggable = true
+Main.Parent = ScreenGui
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Text = "LOCAL-HALF"
+Title.TextSize = 18
+Title.Parent = Main
+
+local function CreateButton(text, y)
+    local button = Instance.new("TextButton")
+
+    button.Size = UDim2.new(1, -20, 0, 35)
+    button.Position = UDim2.fromOffset(10, y)
+    button.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.Text = text
+    button.TextSize = 14
+    button.BorderSizePixel = 0
+    button.Parent = Main
+
+    return button
 end
 
-local boneButton = makeButton("Bone ESP: OFF", 45)
-local healthButton = makeButton("Health ESP: OFF", 85)
-local flingButton = makeButton("FLING SELECTED", 125)
+local BoneButton = CreateButton("Bone ESP: OFF", 50)
+local HealthButton = CreateButton("Health ESP: OFF", 90)
+local FlingButton = CreateButton("FLING SELECTED", 130)
 
-boneButton.MouseButton1Click:Connect(function()
-    boneESP = not boneESP
-    boneButton.Text = boneESP and "Bone ESP: ON" or "Bone ESP: OFF"
-end)
+--==================================================
+-- PLAYER LIST
+--==================================================
 
-healthButton.MouseButton1Click:Connect(function()
-    healthESP = not healthESP
-    healthButton.Text = healthESP and "Health ESP: ON" or "Health ESP: OFF"
-end)
+local PlayerList = Instance.new("ScrollingFrame")
 
---// Player selector
-local playerList = Instance.new("ScrollingFrame")
-playerList.Size = UDim2.fromOffset(200, 125)
-playerList.Position = UDim2.fromOffset(15, 170)
-playerList.CanvasSize = UDim2.fromOffset(0, 0)
-playerList.Parent = frame
+PlayerList.Size = UDim2.new(1, -20, 0, 205)
+PlayerList.Position = UDim2.fromOffset(10, 175)
+PlayerList.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+PlayerList.BorderSizePixel = 0
+PlayerList.ScrollBarThickness = 5
+PlayerList.CanvasSize = UDim2.fromOffset(0, 0)
+PlayerList.Parent = Main
 
-local function refreshPlayers()
-    for _, child in ipairs(playerList:GetChildren()) do
-        if child:IsA("TextButton") then
-            child:Destroy()
+local function RefreshPlayerList()
+
+    for _, object in ipairs(PlayerList:GetChildren()) do
+        if object:IsA("TextButton") then
+            object:Destroy()
         end
     end
 
-    local y = 0
+    local y = 5
 
     for _, target in ipairs(Players:GetPlayers()) do
-        if target ~= player then
+
+        if target ~= LocalPlayer then
+
             local button = Instance.new("TextButton")
-            button.Size = UDim2.fromOffset(180, 28)
+
+            button.Size = UDim2.new(1, -10, 0, 30)
             button.Position = UDim2.fromOffset(5, y)
+            button.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+            button.TextColor3 = Color3.fromRGB(255, 255, 255)
             button.Text = target.Name
-            button.Parent = playerList
+            button.TextSize = 13
+            button.BorderSizePixel = 0
+            button.Parent = PlayerList
 
             button.MouseButton1Click:Connect(function()
-                selectedPlayer = target
-                title.Text = "Selected: " .. target.Name
+
+                SelectedPlayer = target
+                Title.Text = "TARGET: " .. target.Name
+
             end)
 
-            y += 30
+            y = y + 35
         end
     end
 
-    playerList.CanvasSize = UDim2.fromOffset(0, y)
+    PlayerList.CanvasSize = UDim2.fromOffset(0, y)
 end
 
-refreshPlayers()
+RefreshPlayerList()
 
-Players.PlayerAdded:Connect(refreshPlayers)
-Players.PlayerRemoving:Connect(function(target)
-    if selectedPlayer == target then
-        selectedPlayer = nil
-        title.Text = "Physics / ESP"
-    end
-    refreshPlayers()
+Players.PlayerAdded:Connect(function()
+    task.wait(0.1)
+    RefreshPlayerList()
 end)
 
---// ESP storage
-local espObjects = {}
+Players.PlayerRemoving:Connect(function(target)
 
-local function removeESP(target)
-    if espObjects[target] then
-        for _, object in pairs(espObjects[target]) do
+    if SelectedPlayer == target then
+        SelectedPlayer = nil
+        Title.Text = "LOCAL-HALF"
+    end
+
+    if ESPObjects[target] then
+
+        for _, object in ipairs(ESPObjects[target]) do
             if object and object.Parent then
                 object:Destroy()
             end
         end
-        espObjects[target] = nil
+
+        ESPObjects[target] = nil
+    end
+
+    RefreshPlayerList()
+end)
+
+--==================================================
+-- TOGGLES
+--==================================================
+
+BoneButton.MouseButton1Click:Connect(function()
+
+    BoneESP = not BoneESP
+
+    BoneButton.Text =
+        BoneESP and "Bone ESP: ON"
+        or "Bone ESP: OFF"
+
+end)
+
+HealthButton.MouseButton1Click:Connect(function()
+
+    HealthESP = not HealthESP
+
+    HealthButton.Text =
+        HealthESP and "Health ESP: ON"
+        or "Health ESP: OFF"
+
+end)
+
+--==================================================
+-- R6 + R15 BONE MAP
+--==================================================
+
+local BonePairs = {
+
+    -- R6
+    {"Head", "Torso"},
+    {"Torso", "Left Arm"},
+    {"Torso", "Right Arm"},
+    {"Torso", "Left Leg"},
+    {"Torso", "Right Leg"},
+
+    -- R15
+    {"Head", "UpperTorso"},
+    {"UpperTorso", "LowerTorso"},
+
+    {"UpperTorso", "LeftUpperArm"},
+    {"LeftUpperArm", "LeftLowerArm"},
+    {"LeftLowerArm", "LeftHand"},
+
+    {"UpperTorso", "RightUpperArm"},
+    {"RightUpperArm", "RightLowerArm"},
+    {"RightLowerArm", "RightHand"},
+
+    {"LowerTorso", "LeftUpperLeg"},
+    {"LeftUpperLeg", "LeftLowerLeg"},
+    {"LeftLowerLeg", "LeftFoot"},
+
+    {"LowerTorso", "RightUpperLeg"},
+    {"RightUpperLeg", "RightLowerLeg"},
+    {"RightLowerLeg", "RightFoot"}
+}
+
+--==================================================
+-- SAFE HELPERS
+--==================================================
+
+local function GetCharacter(target)
+
+    if not target then
+        return nil
+    end
+
+    local character = target.Character
+
+    if not character or not character.Parent then
+        return nil
+    end
+
+    return character
+end
+
+local function GetPart(character, name)
+
+    if not character then
+        return nil
+    end
+
+    return character:FindFirstChild(name)
+end
+
+local function GetAttachment(part, name)
+
+    if not part then
+        return nil
+    end
+
+    local attachment = part:FindFirstChild(name)
+
+    if attachment then
+        return attachment
+    end
+
+    attachment = Instance.new("Attachment")
+    attachment.Name = name
+    attachment.Parent = part
+
+    return attachment
+end
+
+--==================================================
+-- BONE ESP
+--==================================================
+
+local function RemoveBoneESP(target)
+
+    local objects = ESPObjects[target]
+
+    if not objects then
+        return
+    end
+
+    for _, object in ipairs(objects) do
+
+        if object and object.Parent then
+            object:Destroy()
+        end
+
+    end
+
+    ESPObjects[target] = nil
+end
+
+local function CreateBoneESP(target)
+
+    local character = GetCharacter(target)
+
+    if not character then
+        return
+    end
+
+    RemoveBoneESP(target)
+
+    ESPObjects[target] = {}
+
+    for _, pair in ipairs(BonePairs) do
+
+        local partA = GetPart(character, pair[1])
+        local partB = GetPart(character, pair[2])
+
+        if partA and partB then
+
+            local attachmentA =
+                GetAttachment(partA, "LocalHalf_A")
+
+            local attachmentB =
+                GetAttachment(partB, "LocalHalf_B")
+
+            if attachmentA and attachmentB then
+
+                local beam = Instance.new("Beam")
+
+                beam.Name = "LocalHalfBone"
+                beam.Attachment0 = attachmentA
+                beam.Attachment1 = attachmentB
+                beam.Width0 = 0.06
+                beam.Width1 = 0.06
+                beam.FaceCamera = true
+                beam.Parent = character
+
+                table.insert(
+                    ESPObjects[target],
+                    beam
+                )
+            end
+        end
     end
 end
 
-local function createESP(target)
-    if target == player then
+--==================================================
+-- HEALTH ESP
+--==================================================
+
+local function RemoveHealthESP(target)
+
+    local character = GetCharacter(target)
+
+    if not character then
         return
     end
 
-    local char = target.Character
-    if not char then
+    local head = character:FindFirstChild("Head")
+
+    if not head then
         return
     end
 
-    removeESP(target)
+    local billboard =
+        head:FindFirstChild("LocalHalfHealth")
 
-    espObjects[target] = {}
+    if billboard then
+        billboard:Destroy()
+    end
+end
 
-    -- Health/name display
-    local head = char:FindFirstChild("Head")
+local function CreateHealthESP(target)
 
-    if head then
-        local billboard = Instance.new("BillboardGui")
-        billboard.Name = "HealthESP"
-        billboard.Size = UDim2.fromOffset(160, 40)
+    local character = GetCharacter(target)
+
+    if not character then
+        return
+    end
+
+    local head = character:FindFirstChild("Head")
+
+    if not head then
+        return
+    end
+
+    local humanoid =
+        character:FindFirstChildOfClass("Humanoid")
+
+    if not humanoid then
+        return
+    end
+
+    local billboard =
+        head:FindFirstChild("LocalHalfHealth")
+
+    if not billboard then
+
+        billboard = Instance.new("BillboardGui")
+
+        billboard.Name = "LocalHalfHealth"
+        billboard.Size = UDim2.fromOffset(180, 45)
         billboard.StudsOffset = Vector3.new(0, 3, 0)
         billboard.AlwaysOnTop = true
         billboard.Parent = head
 
         local label = Instance.new("TextLabel")
+
+        label.Name = "HealthLabel"
         label.Size = UDim2.fromScale(1, 1)
         label.BackgroundTransparency = 1
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        label.TextStrokeTransparency = 0
         label.TextScaled = true
         label.Parent = billboard
-
-        espObjects[target].billboard = billboard
-        espObjects[target].label = label
     end
 
-    -- Bone connections
-    local bones = {
-        {"Head", "UpperTorso"},
-        {"UpperTorso", "LowerTorso"},
-        {"UpperTorso", "LeftUpperArm"},
-        {"LeftUpperArm", "LeftLowerArm"},
-        {"LeftLowerArm", "LeftHand"},
-        {"UpperTorso", "RightUpperArm"},
-        {"RightUpperArm", "RightLowerArm"},
-        {"RightLowerArm", "RightHand"},
-        {"LowerTorso", "LeftUpperLeg"},
-        {"LeftUpperLeg", "LeftLowerLeg"},
-        {"LeftLowerLeg", "LeftFoot"},
-        {"LowerTorso", "RightUpperLeg"},
-        {"RightUpperLeg", "RightLowerLeg"},
-        {"RightLowerLeg", "RightFoot"}
-    }
+    local label =
+        billboard:FindFirstChild("HealthLabel")
 
-    for _, pair in ipairs(bones) do
-        local a = char:FindFirstChild(pair[1])
-        local b = char:FindFirstChild(pair[2])
+    if label then
 
-        if a and b then
-            local beam = Instance.new("Beam")
-            beam.Name = "Bone"
-            beam.Attachment0 = a:FindFirstChildOfClass("Attachment")
-            beam.Attachment1 = b:FindFirstChildOfClass("Attachment")
+        label.Text =
+            target.Name ..
+            "\nHP: " ..
+            math.floor(humanoid.Health) ..
+            "/" ..
+            math.floor(humanoid.MaxHealth)
 
-            if beam.Attachment0 and beam.Attachment1 then
-                beam.Width0 = 0.05
-                beam.Width1 = 0.05
-                beam.Parent = char
-                table.insert(espObjects[target], beam)
-            else
-                beam:Destroy()
-            end
-        end
     end
 end
 
---// Fling
-flingButton.MouseButton1Click:Connect(function()
-    if not selectedPlayer then
+--==================================================
+-- FLING
+--==================================================
+
+local function FlingSelected()
+
+    if not SelectedPlayer then
+        Title.Text = "NO TARGET"
         return
     end
 
-    local targetCharacter = selectedPlayer.Character
-    if not targetCharacter then
+    local character =
+        GetCharacter(SelectedPlayer)
+
+    if not character then
+        Title.Text = "TARGET HAS NO CHARACTER"
         return
     end
 
-    local targetRoot = targetCharacter:FindFirstChild("HumanoidRootPart")
-    if not targetRoot then
+    local root =
+        character:FindFirstChild("HumanoidRootPart")
+
+    if not root then
+        Title.Text = "NO ROOT PART"
         return
     end
 
-    -- Physics impulse for your test environment.
-    targetRoot.AssemblyLinearVelocity =
+    -- Uses the physics behavior provided
+    -- by your local-half environment.
+
+    root.AssemblyLinearVelocity =
         Vector3.new(
-            math.random(-250, 250),
-            350,
-            math.random(-250, 250)
+            math.random(-FlingPower, FlingPower),
+            FlingPower,
+            math.random(-FlingPower, FlingPower)
         )
+end
+
+FlingButton.MouseButton1Click:Connect(FlingSelected)
+
+--==================================================
+-- CHARACTER RESPAWN
+--==================================================
+
+local function CharacterChanged(target)
+
+    if target == LocalPlayer then
+        return
+    end
+
+    if ESPObjects[target] then
+        RemoveBoneESP(target)
+    end
+
+    task.wait(0.25)
+
+    if BoneESP then
+        CreateBoneESP(target)
+    end
+end
+
+for _, target in ipairs(Players:GetPlayers()) do
+
+    if target ~= LocalPlayer then
+
+        target.CharacterAdded:Connect(function()
+            CharacterChanged(target)
+        end)
+
+    end
+end
+
+Players.PlayerAdded:Connect(function(target)
+
+    target.CharacterAdded:Connect(function()
+        CharacterChanged(target)
+    end)
+
 end)
 
---// Update
+--==================================================
+-- MAIN UPDATE
+--==================================================
+
 RunService.Heartbeat:Connect(function()
+
     for _, target in ipairs(Players:GetPlayers()) do
-        if target ~= player then
-            local char = target.Character
 
-            if char then
-                if boneESP then
-                    if not espObjects[target] then
-                        createESP(target)
+        if target ~= LocalPlayer then
+
+            local character = GetCharacter(target)
+
+            if character then
+
+                -- Bone ESP
+                if BoneESP then
+
+                    if not ESPObjects[target] then
+                        CreateBoneESP(target)
                     end
+
                 else
-                    removeESP(target)
-                end
 
-                local data = espObjects[target]
-
-                if data and data.label then
-                    local humanoid = char:FindFirstChildOfClass("Humanoid")
-
-                    if healthESP and humanoid then
-                        data.label.Text =
-                            target.Name ..
-                            "\nHP: " ..
-                            math.floor(humanoid.Health) ..
-                            "/" ..
-                            math.floor(humanoid.MaxHealth)
-                        data.label.Visible = true
-                    else
-                        data.label.Visible = false
+                    if ESPObjects[target] then
+                        RemoveBoneESP(target)
                     end
+
                 end
+
+                -- Health ESP
+                if HealthESP then
+                    CreateHealthESP(target)
+                else
+                    RemoveHealthESP(target)
+                end
+
             end
         end
     end
