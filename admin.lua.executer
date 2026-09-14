@@ -1,5 +1,5 @@
 --==================================================
--- LOCAL-HALF TEST SCRIPT
+-- LOCAL-HALF / LOADSTRING VERSION
 -- Roblox-style Luau API
 --==================================================
 
@@ -7,6 +7,12 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 local LocalPlayer = Players.LocalPlayer
+
+if not LocalPlayer then
+    warn("LocalPlayer is nil")
+    return
+end
+
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 --==================================================
@@ -18,11 +24,35 @@ local HealthESP = false
 local SelectedPlayer = nil
 local FlingPower = 250
 
-local ESPObjects = {}
+local BoneObjects = {}
+
+--==================================================
+-- CHARACTER
+--==================================================
+
+local function GetCharacter(player)
+    if not player then
+        return nil
+    end
+
+    local character = player.Character
+
+    if character and character.Parent then
+        return character
+    end
+
+    return nil
+end
 
 --==================================================
 -- GUI
 --==================================================
+
+local OldGui = PlayerGui:FindFirstChild("LocalHalfGUI")
+
+if OldGui then
+    OldGui:Destroy()
+end
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "LocalHalfGUI"
@@ -31,9 +61,9 @@ ScreenGui.Parent = PlayerGui
 
 local Main = Instance.new("Frame")
 Main.Name = "Main"
-Main.Size = UDim2.fromOffset(260, 390)
+Main.Size = UDim2.fromOffset(270, 420)
 Main.Position = UDim2.fromOffset(30, 120)
-Main.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 Main.BorderSizePixel = 0
 Main.Active = true
 Main.Draggable = true
@@ -41,40 +71,41 @@ Main.Parent = ScreenGui
 
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 40)
-Title.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+Title.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
+Title.BorderSizePixel = 0
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Text = "LOCAL-HALF"
 Title.TextSize = 18
 Title.Parent = Main
 
-local function CreateButton(text, y)
+local function MakeButton(text, y)
     local button = Instance.new("TextButton")
 
     button.Size = UDim2.new(1, -20, 0, 35)
     button.Position = UDim2.fromOffset(10, y)
     button.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    button.BorderSizePixel = 0
     button.TextColor3 = Color3.fromRGB(255, 255, 255)
     button.Text = text
     button.TextSize = 14
-    button.BorderSizePixel = 0
     button.Parent = Main
 
     return button
 end
 
-local BoneButton = CreateButton("Bone ESP: OFF", 50)
-local HealthButton = CreateButton("Health ESP: OFF", 90)
-local FlingButton = CreateButton("FLING SELECTED", 130)
+local BoneButton = MakeButton("Bone ESP: OFF", 50)
+local HealthButton = MakeButton("Health ESP: OFF", 90)
+local FlingButton = MakeButton("FLING SELECTED", 130)
 
 --==================================================
 -- PLAYER LIST
 --==================================================
 
 local PlayerList = Instance.new("ScrollingFrame")
-
-PlayerList.Size = UDim2.new(1, -20, 0, 205)
+PlayerList.Name = "PlayerList"
+PlayerList.Size = UDim2.new(1, -20, 0, 240)
 PlayerList.Position = UDim2.fromOffset(10, 175)
-PlayerList.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+PlayerList.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
 PlayerList.BorderSizePixel = 0
 PlayerList.ScrollBarThickness = 5
 PlayerList.CanvasSize = UDim2.fromOffset(0, 0)
@@ -99,17 +130,15 @@ local function RefreshPlayerList()
             button.Size = UDim2.new(1, -10, 0, 30)
             button.Position = UDim2.fromOffset(5, y)
             button.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+            button.BorderSizePixel = 0
             button.TextColor3 = Color3.fromRGB(255, 255, 255)
             button.Text = target.Name
             button.TextSize = 13
-            button.BorderSizePixel = 0
             button.Parent = PlayerList
 
             button.MouseButton1Click:Connect(function()
-
                 SelectedPlayer = target
                 Title.Text = "TARGET: " .. target.Name
-
             end)
 
             y = y + 35
@@ -133,22 +162,22 @@ Players.PlayerRemoving:Connect(function(target)
         Title.Text = "LOCAL-HALF"
     end
 
-    if ESPObjects[target] then
+    if BoneObjects[target] then
 
-        for _, object in ipairs(ESPObjects[target]) do
+        for _, object in ipairs(BoneObjects[target]) do
             if object and object.Parent then
                 object:Destroy()
             end
         end
 
-        ESPObjects[target] = nil
+        BoneObjects[target] = nil
     end
 
     RefreshPlayerList()
 end)
 
 --==================================================
--- TOGGLES
+-- ESP TOGGLES
 --==================================================
 
 BoneButton.MouseButton1Click:Connect(function()
@@ -172,7 +201,7 @@ HealthButton.MouseButton1Click:Connect(function()
 end)
 
 --==================================================
--- R6 + R15 BONE MAP
+-- BONE MAP
 --==================================================
 
 local BonePairs = {
@@ -206,32 +235,8 @@ local BonePairs = {
 }
 
 --==================================================
--- SAFE HELPERS
+-- SAFE ATTACHMENT
 --==================================================
-
-local function GetCharacter(target)
-
-    if not target then
-        return nil
-    end
-
-    local character = target.Character
-
-    if not character or not character.Parent then
-        return nil
-    end
-
-    return character
-end
-
-local function GetPart(character, name)
-
-    if not character then
-        return nil
-    end
-
-    return character:FindFirstChild(name)
-end
 
 local function GetAttachment(part, name)
 
@@ -253,12 +258,12 @@ local function GetAttachment(part, name)
 end
 
 --==================================================
--- BONE ESP
+-- REMOVE BONE ESP
 --==================================================
 
 local function RemoveBoneESP(target)
 
-    local objects = ESPObjects[target]
+    local objects = BoneObjects[target]
 
     if not objects then
         return
@@ -272,8 +277,12 @@ local function RemoveBoneESP(target)
 
     end
 
-    ESPObjects[target] = nil
+    BoneObjects[target] = nil
 end
+
+--==================================================
+-- CREATE BONE ESP
+--==================================================
 
 local function CreateBoneESP(target)
 
@@ -285,12 +294,12 @@ local function CreateBoneESP(target)
 
     RemoveBoneESP(target)
 
-    ESPObjects[target] = {}
+    BoneObjects[target] = {}
 
     for _, pair in ipairs(BonePairs) do
 
-        local partA = GetPart(character, pair[1])
-        local partB = GetPart(character, pair[2])
+        local partA = character:FindFirstChild(pair[1])
+        local partB = character:FindFirstChild(pair[2])
 
         if partA and partB then
 
@@ -313,7 +322,7 @@ local function CreateBoneESP(target)
                 beam.Parent = character
 
                 table.insert(
-                    ESPObjects[target],
+                    BoneObjects[target],
                     beam
                 )
             end
@@ -347,7 +356,7 @@ local function RemoveHealthESP(target)
     end
 end
 
-local function CreateHealthESP(target)
+local function UpdateHealthESP(target)
 
     local character = GetCharacter(target)
 
@@ -397,12 +406,15 @@ local function CreateHealthESP(target)
 
     if label then
 
+        local health = humanoid.Health
+        local maxHealth = humanoid.MaxHealth
+
         label.Text =
             target.Name ..
             "\nHP: " ..
-            math.floor(humanoid.Health) ..
+            math.floor(health) ..
             "/" ..
-            math.floor(humanoid.MaxHealth)
+            math.floor(maxHealth)
 
     end
 end
@@ -434,58 +446,43 @@ local function FlingSelected()
         return
     end
 
-    -- Uses the physics behavior provided
-    -- by your local-half environment.
+    root.AssemblyLinearVelocity = Vector3.new(
+        math.random(-FlingPower, FlingPower),
+        FlingPower,
+        math.random(-FlingPower, FlingPower)
+    )
 
-    root.AssemblyLinearVelocity =
-        Vector3.new(
-            math.random(-FlingPower, FlingPower),
-            FlingPower,
-            math.random(-FlingPower, FlingPower)
-        )
+    Title.Text = "FLUNG: " .. SelectedPlayer.Name
 end
 
 FlingButton.MouseButton1Click:Connect(FlingSelected)
 
 --==================================================
--- CHARACTER RESPAWN
+-- RESPAWN HANDLING
 --==================================================
 
-local function CharacterChanged(target)
+local function SetupPlayer(target)
 
     if target == LocalPlayer then
         return
     end
 
-    if ESPObjects[target] then
-        RemoveBoneESP(target)
-    end
+    target.CharacterAdded:Connect(function()
 
-    task.wait(0.25)
+        task.wait(0.25)
 
-    if BoneESP then
-        CreateBoneESP(target)
-    end
+        if BoneESP then
+            CreateBoneESP(target)
+        end
+
+    end)
 end
 
 for _, target in ipairs(Players:GetPlayers()) do
-
-    if target ~= LocalPlayer then
-
-        target.CharacterAdded:Connect(function()
-            CharacterChanged(target)
-        end)
-
-    end
+    SetupPlayer(target)
 end
 
-Players.PlayerAdded:Connect(function(target)
-
-    target.CharacterAdded:Connect(function()
-        CharacterChanged(target)
-    end)
-
-end)
+Players.PlayerAdded:Connect(SetupPlayer)
 
 --==================================================
 -- MAIN UPDATE
@@ -504,21 +501,19 @@ RunService.Heartbeat:Connect(function()
                 -- Bone ESP
                 if BoneESP then
 
-                    if not ESPObjects[target] then
+                    if not BoneObjects[target] then
                         CreateBoneESP(target)
                     end
 
-                else
+                elseif BoneObjects[target] then
 
-                    if ESPObjects[target] then
-                        RemoveBoneESP(target)
-                    end
+                    RemoveBoneESP(target)
 
                 end
 
                 -- Health ESP
                 if HealthESP then
-                    CreateHealthESP(target)
+                    UpdateHealthESP(target)
                 else
                     RemoveHealthESP(target)
                 end
