@@ -1,46 +1,255 @@
--- Local-half / client-side test script
--- Put in your game's equivalent of StarterCharacterScripts
+-- Local-half test script
+-- For your own game/test environment.
+-- Uses Roblox-style Luau APIs.
 
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local character = script.Parent
-local root = character:WaitForChild("HumanoidRootPart")
 
+--// GUI
 local gui = Instance.new("ScreenGui")
-gui.Name = "PhysicsTestGui"
+gui.Name = "TestAdminGui"
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.fromOffset(190, 100)
-frame.Position = UDim2.fromOffset(30, 150)
+frame.Size = UDim2.fromOffset(230, 330)
+frame.Position = UDim2.fromOffset(30, 120)
 frame.Active = true
 frame.Draggable = true
 frame.Parent = gui
 
-local button = Instance.new("TextButton")
-button.Size = UDim2.fromOffset(160, 45)
-button.Position = UDim2.fromOffset(15, 35)
-button.Text = "Fling Test: OFF"
-button.Parent = frame
+local title = Instance.new("TextLabel")
+title.Size = UDim2.fromOffset(230, 35)
+title.Text = "Physics / ESP"
+title.Parent = frame
 
-local enabled = false
+--// State
+local boneESP = false
+local healthESP = false
+local selectedPlayer = nil
 
-button.MouseButton1Click:Connect(function()
-    enabled = not enabled
-    button.Text = enabled and "Fling Test: ON" or "Fling Test: OFF"
+local buttons = {}
+
+local function makeButton(text, y)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.fromOffset(200, 35)
+    b.Position = UDim2.fromOffset(15, y)
+    b.Text = text
+    b.Parent = frame
+    return b
+end
+
+local boneButton = makeButton("Bone ESP: OFF", 45)
+local healthButton = makeButton("Health ESP: OFF", 85)
+local flingButton = makeButton("FLING SELECTED", 125)
+
+boneButton.MouseButton1Click:Connect(function()
+    boneESP = not boneESP
+    boneButton.Text = boneESP and "Bone ESP: ON" or "Bone ESP: OFF"
 end)
 
+healthButton.MouseButton1Click:Connect(function()
+    healthESP = not healthESP
+    healthButton.Text = healthESP and "Health ESP: ON" or "Health ESP: OFF"
+end)
+
+--// Player selector
+local playerList = Instance.new("ScrollingFrame")
+playerList.Size = UDim2.fromOffset(200, 125)
+playerList.Position = UDim2.fromOffset(15, 170)
+playerList.CanvasSize = UDim2.fromOffset(0, 0)
+playerList.Parent = frame
+
+local function refreshPlayers()
+    for _, child in ipairs(playerList:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+
+    local y = 0
+
+    for _, target in ipairs(Players:GetPlayers()) do
+        if target ~= player then
+            local button = Instance.new("TextButton")
+            button.Size = UDim2.fromOffset(180, 28)
+            button.Position = UDim2.fromOffset(5, y)
+            button.Text = target.Name
+            button.Parent = playerList
+
+            button.MouseButton1Click:Connect(function()
+                selectedPlayer = target
+                title.Text = "Selected: " .. target.Name
+            end)
+
+            y += 30
+        end
+    end
+
+    playerList.CanvasSize = UDim2.fromOffset(0, y)
+end
+
+refreshPlayers()
+
+Players.PlayerAdded:Connect(refreshPlayers)
+Players.PlayerRemoving:Connect(function(target)
+    if selectedPlayer == target then
+        selectedPlayer = nil
+        title.Text = "Physics / ESP"
+    end
+    refreshPlayers()
+end)
+
+--// ESP storage
+local espObjects = {}
+
+local function removeESP(target)
+    if espObjects[target] then
+        for _, object in pairs(espObjects[target]) do
+            if object and object.Parent then
+                object:Destroy()
+            end
+        end
+        espObjects[target] = nil
+    end
+end
+
+local function createESP(target)
+    if target == player then
+        return
+    end
+
+    local char = target.Character
+    if not char then
+        return
+    end
+
+    removeESP(target)
+
+    espObjects[target] = {}
+
+    -- Health/name display
+    local head = char:FindFirstChild("Head")
+
+    if head then
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "HealthESP"
+        billboard.Size = UDim2.fromOffset(160, 40)
+        billboard.StudsOffset = Vector3.new(0, 3, 0)
+        billboard.AlwaysOnTop = true
+        billboard.Parent = head
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.fromScale(1, 1)
+        label.BackgroundTransparency = 1
+        label.TextScaled = true
+        label.Parent = billboard
+
+        espObjects[target].billboard = billboard
+        espObjects[target].label = label
+    end
+
+    -- Bone connections
+    local bones = {
+        {"Head", "UpperTorso"},
+        {"UpperTorso", "LowerTorso"},
+        {"UpperTorso", "LeftUpperArm"},
+        {"LeftUpperArm", "LeftLowerArm"},
+        {"LeftLowerArm", "LeftHand"},
+        {"UpperTorso", "RightUpperArm"},
+        {"RightUpperArm", "RightLowerArm"},
+        {"RightLowerArm", "RightHand"},
+        {"LowerTorso", "LeftUpperLeg"},
+        {"LeftUpperLeg", "LeftLowerLeg"},
+        {"LeftLowerLeg", "LeftFoot"},
+        {"LowerTorso", "RightUpperLeg"},
+        {"RightUpperLeg", "RightLowerLeg"},
+        {"RightLowerLeg", "RightFoot"}
+    }
+
+    for _, pair in ipairs(bones) do
+        local a = char:FindFirstChild(pair[1])
+        local b = char:FindFirstChild(pair[2])
+
+        if a and b then
+            local beam = Instance.new("Beam")
+            beam.Name = "Bone"
+            beam.Attachment0 = a:FindFirstChildOfClass("Attachment")
+            beam.Attachment1 = b:FindFirstChildOfClass("Attachment")
+
+            if beam.Attachment0 and beam.Attachment1 then
+                beam.Width0 = 0.05
+                beam.Width1 = 0.05
+                beam.Parent = char
+                table.insert(espObjects[target], beam)
+            else
+                beam:Destroy()
+            end
+        end
+    end
+end
+
+--// Fling
+flingButton.MouseButton1Click:Connect(function()
+    if not selectedPlayer then
+        return
+    end
+
+    local targetCharacter = selectedPlayer.Character
+    if not targetCharacter then
+        return
+    end
+
+    local targetRoot = targetCharacter:FindFirstChild("HumanoidRootPart")
+    if not targetRoot then
+        return
+    end
+
+    -- Physics impulse for your test environment.
+    targetRoot.AssemblyLinearVelocity =
+        Vector3.new(
+            math.random(-250, 250),
+            350,
+            math.random(-250, 250)
+        )
+end)
+
+--// Update
 RunService.Heartbeat:Connect(function()
-    if enabled and root and root.Parent then
-        root.AssemblyLinearVelocity =
-            Vector3.new(
-                math.random(-100, 100),
-                150,
-                math.random(-100, 100)
-            )
+    for _, target in ipairs(Players:GetPlayers()) do
+        if target ~= player then
+            local char = target.Character
+
+            if char then
+                if boneESP then
+                    if not espObjects[target] then
+                        createESP(target)
+                    end
+                else
+                    removeESP(target)
+                end
+
+                local data = espObjects[target]
+
+                if data and data.label then
+                    local humanoid = char:FindFirstChildOfClass("Humanoid")
+
+                    if healthESP and humanoid then
+                        data.label.Text =
+                            target.Name ..
+                            "\nHP: " ..
+                            math.floor(humanoid.Health) ..
+                            "/" ..
+                            math.floor(humanoid.MaxHealth)
+                        data.label.Visible = true
+                    else
+                        data.label.Visible = false
+                    end
+                end
+            end
+        end
     end
 end)
